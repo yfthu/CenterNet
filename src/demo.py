@@ -16,7 +16,12 @@ time_stats = ['tot', 'load', 'pre', 'net', 'dec', 'post', 'merge']
 
 def demo(opt):
   os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
-  opt.debug = max(opt.debug, 1)
+  opt.debug = max(opt.debug, 2)
+  opt.save_infer_dir = os.path.join(opt.save_dir, 'infer')
+  # opt.save_infer_dir = os.path.join(opt.debug_dir, 'demo')
+  # print(opt.save_infer_dir)
+  # if not os.path.exists(opt.save_infer_dir):
+  #     os.makedirs(opt.save_infer_dir)
   Detector = detector_factory[opt.task]
   detector = Detector(opt)
 
@@ -44,13 +49,14 @@ def demo(opt):
               image_names.append(os.path.join(opt.demo, file_name))
     else:
       image_names = [opt.demo]
-    
+
     for (image_name) in image_names:
-      ret = detector.run(image_name)
+      ret = detector.run(image_name, img_id=image_name.split('/')[-1])
       time_str = ''
       for stat in time_stats:
         time_str = time_str + '{} {:.3f}s |'.format(stat, ret[stat])
       print(time_str)
+
 if __name__ == '__main__':
   opt = opts().init()
   demo(opt)

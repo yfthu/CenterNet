@@ -5,10 +5,11 @@ from __future__ import print_function
 import numpy as np
 import cv2
 from .ddd_utils import compute_box_3d, project_to_image, draw_box_3d
+import os
 
 class Debugger(object):
   def __init__(self, ipynb=False, theme='black', 
-               num_classes=-1, dataset=None, down_ratio=4):
+               num_classes=-1, dataset=None, down_ratio=4, num_joints=[4,3,2,0,2]):
     self.ipynb = ipynb
     if not self.ipynb:
       import matplotlib.pyplot as plt
@@ -23,21 +24,34 @@ class Debugger(object):
       self.colors = np.clip(self.colors, 0., 0.6 * 255).astype(np.uint8)
     self.dim_scale = 1
     if dataset == 'coco_hp':
-      self.names = ['p']
-      self.num_class = 1
-      self.num_joints = 17
-      self.edges = [[0, 1], [0, 2], [1, 3], [2, 4], 
-                    [3, 5], [4, 6], [5, 6], 
-                    [5, 7], [7, 9], [6, 8], [8, 10], 
-                    [5, 11], [6, 12], [11, 12], 
-                    [11, 13], [13, 15], [12, 14], [14, 16]]
-      self.ec = [(255, 0, 0), (0, 0, 255), (255, 0, 0), (0, 0, 255), 
-                 (255, 0, 0), (0, 0, 255), (255, 0, 255),
-                 (255, 0, 0), (255, 0, 0), (0, 0, 255), (0, 0, 255),
-                 (255, 0, 0), (0, 0, 255), (255, 0, 255),
-                 (255, 0, 0), (255, 0, 0), (0, 0, 255), (0, 0, 255)]
+      self.names = ["vehicle", "tricycle", "pedestrian", "conebarrel", "bicycle"]
+      self.names = [i[:3] for i in self.names]
+      self.num_class = len(num_joints)
+      self.num_joints = num_joints
+      self.num_joints.insert(0, 0)
+      self.cls_kps_masks = []
+      for i, num_kps in enumerate(self.num_joints[1:]):
+          kps_mask = np.zeros(sum(num_joints))
+          start_idx = sum(self.num_joints[:i+1])
+          kps_mask[start_idx: start_idx+num_kps] = 1
+          self.cls_kps_masks.append(kps_mask.reshape(-1,1).astype(np.int32))
+      self.num_joints.pop(0)
+      self.edges = [[[0,1], [1,2], [2,3], [3,0]],
+                    [[0,1], [1,2], [2,0]],
+                    [[0,1], [1,0]],
+                    [],
+                    [[0,1], [1,0]]]
+      if num_joints[3] == 3:
+          self.edges[3] = [[0,1], [1,2], [2,0]]
+      # self.edges = [[0, 1], [0, 2], [1, 3], [2, 4],
+      #               [3, 5], [4, 6], [5, 6],
+      #               [5, 7], [7, 9], [6, 8], [8, 10],
+      #               [5, 11], [6, 12], [11, 12],
+      #               [11, 13], [13, 15], [12, 14], [14, 16]]
+      self.ec = [(255, 0, 0), (0, 0, 255), (255, 0, 255),
+                 (0, 125, 255)]
       self.colors_hp = [(255, 0, 255), (255, 0, 0), (0, 0, 255), 
-        (255, 0, 0), (0, 0, 255), (255, 0, 0), (0, 0, 255),
+        (255, 125, 125), (0, 0, 255), (255, 0, 0), (0, 0, 255),
         (255, 0, 0), (0, 0, 255), (255, 0, 0), (0, 0, 255),
         (255, 0, 0), (0, 0, 255), (255, 0, 0), (0, 0, 255),
         (255, 0, 0), (0, 0, 255)]
@@ -173,10 +187,10 @@ class Debugger(object):
     # cat = (int(cat) + 1) % 80
     cat = int(cat)
     # print('cat', cat, self.names[cat])
-    c = self.colors[cat][0][0].tolist()
+    c = self.colors[int(cat)*2][0][0].tolist()
     if self.theme == 'white':
       c = (255 - np.array(c)).tolist()
-    txt = '{}{:.1f}'.format(self.names[cat], conf)
+    txt = '{}{:.1f}'.format(self.names[int(cat)], conf)
     font = cv2.FONT_HERSHEY_SIMPLEX
     cat_size = cv2.getTextSize(txt, font, 0.5, 2)[0]
     cv2.rectangle(
@@ -188,16 +202,22 @@ class Debugger(object):
       cv2.putText(self.imgs[img_id], txt, (bbox[0], bbox[1] - 2), 
                   font, 0.5, (0, 0, 0), thickness=1, lineType=cv2.LINE_AA)
 
-  def add_coco_hp(self, points, img_id='default'): 
-    points = np.array(points, dtype=np.int32).reshape(self.num_joints, 2)
-    for j in range(self.num_joints):
-      cv2.circle(self.imgs[img_id],
-                 (points[j, 0], points[j, 1]), 3, self.colors_hp[j], -1)
-    for j, e in enumerate(self.edges):
+  def add_coco_hp(self, points, cat, img_id='default'):
+    points = np.array(points, dtype=np.int32).reshape(sum(self.num_joints), 2)
+    points = points[np.nonzero(self.cls_kps_masks[int(cat)])[0]]
+    edges = self.edges[int(cat)]
+    # points *= self.cls_kps_masks[int(cat)]
+    for j in range(points.shape[0]):
+      if points[j].min() > 0:
+          cv2.circle(self.imgs[img_id],
+                     (points[j, 0], points[j, 1]), 3, self.colors_hp[j], -1)
+      else:
+          print("Point for class {0} is out of canvas.".format(self.names[int(cat)]))
+      e = edges[j]
       if points[e].min() > 0:
-        cv2.line(self.imgs[img_id], (points[e[0], 0], points[e[0], 1]),
-                      (points[e[1], 0], points[e[1], 1]), self.ec[j], 2,
-                      lineType=cv2.LINE_AA)
+          cv2.line(self.imgs[img_id], (points[e[0], 0], points[e[0], 1]),
+                   (points[e[1], 0], points[e[1], 1]), self.ec[j], 2,
+                   lineType=cv2.LINE_AA)
 
   def add_points(self, points, img_id='default'):
     num_classes = len(points)
@@ -235,8 +255,10 @@ class Debugger(object):
 
   def save_img(self, imgId='default', path='./cache/debug/'):
     cv2.imwrite(path + '{}.png'.format(imgId), self.imgs[imgId])
-    
+
   def save_all_imgs(self, path='./cache/debug/', prefix='', genID=False):
+    if not os.path.exists(path):
+      os.mkdir(path)
     if genID:
       try:
         idx = int(np.loadtxt(path + '/id.txt'))

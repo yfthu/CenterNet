@@ -107,7 +107,7 @@ def _reg_loss(regr, gt_regr, mask):
   regr = regr * mask
   gt_regr = gt_regr * mask
     
-  regr_loss = nn.functional.smooth_l1_loss(regr, gt_regr, size_average=False)
+  regr_loss = nn.functional.smooth_l1_loss(regr, gt_regr, reduction='sum')
   regr_loss = regr_loss / (num + 1e-4)
   return regr_loss
 
@@ -144,7 +144,7 @@ class RegL1Loss(nn.Module):
     pred = _transpose_and_gather_feat(output, ind)
     mask = mask.unsqueeze(2).expand_as(pred).float()
     # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
-    loss = F.l1_loss(pred * mask, target * mask, size_average=False)
+    loss = F.l1_loss(pred * mask, target * mask, reduction='sum')
     loss = loss / (mask.sum() + 1e-4)
     return loss
 
@@ -167,10 +167,15 @@ class RegWeightedL1Loss(nn.Module):
     super(RegWeightedL1Loss, self).__init__()
   
   def forward(self, output, mask, ind, target):
+    # print(output.size()) # torch.Size([1, 22, 320, 320])
     pred = _transpose_and_gather_feat(output, ind)
     mask = mask.float()
     # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
-    loss = F.l1_loss(pred * mask, target * mask, size_average=False)
+    # print(pred.size(), target.size(), mask.size())
+    # torch.Size([1, 40, 22])
+    # torch.Size([1, 40, 22])
+    # torch.Size([1, 40, 22])
+    loss = F.l1_loss(pred * mask, target * mask, reduction='sum')
     loss = loss / (mask.sum() + 1e-4)
     return loss
 

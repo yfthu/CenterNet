@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from os.path import join
 
 import cv2
 import numpy as np
@@ -25,6 +26,10 @@ class MultiPoseDetector(BaseDetector):
   def __init__(self, opt):
     super(MultiPoseDetector, self).__init__(opt)
     self.flip_idx = opt.flip_idx
+    self.save_infer_dir = opt.save_infer_dir
+    self.num_classes = opt.num_classes
+    self.num_joints = opt.num_joints
+    self.all_num_kps = sum(self.num_joints)
 
   def process(self, images, return_time=False):
     with torch.no_grad():
@@ -49,23 +54,28 @@ class MultiPoseDetector(BaseDetector):
                 if hm_hp is not None else None
         reg = reg[0:1] if reg is not None else None
         hp_offset = hp_offset[0:1] if hp_offset is not None else None
-      
+
+      # print(output['hps'].size()) # [1, 22, 256, 488]
       dets = multi_pose_decode(
         output['hm'], output['wh'], output['hps'],
         reg=reg, hm_hp=hm_hp, hp_offset=hp_offset, K=self.opt.K)
-
+      # print(dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])[:, :, 5:13])
     if return_time:
       return output, dets, forward_time
     else:
       return output, dets
 
   def post_process(self, dets, meta, scale=1):
+    # print(dets.size()) # (1,100,28) 4+1+22+1
     dets = dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])
+    # print(dets.shape) # (1,100,28)
     dets = multi_pose_post_process(
       dets.copy(), [meta['c']], [meta['s']],
-      meta['out_height'], meta['out_width'])
-    for j in range(1, self.num_classes + 1):
-      dets[0][j] = np.array(dets[0][j], dtype=np.float32).reshape(-1, 39)
+      meta['out_height'], meta['out_width'], self.num_classes, num_joints=self.num_joints)
+    if len(dets) > 1:
+      raise NotImplementedError
+    for j in range(1, self.num_classes+1):
+      dets[0][j] = np.array(dets[0][j], dtype=np.float32).reshape(-1, 5+self.all_num_kps*2)
       # import pdb; pdb.set_trace()
       dets[0][j][:, :4] /= scale
       dets[0][j][:, 5:] /= scale
@@ -73,17 +83,18 @@ class MultiPoseDetector(BaseDetector):
 
   def merge_outputs(self, detections):
     results = {}
-    results[1] = np.concatenate(
-        [detection[1] for detection in detections], axis=0).astype(np.float32)
-    if self.opt.nms or len(self.opt.test_scales) > 1:
-      soft_nms_39(results[1], Nt=0.5, method=2)
-    results[1] = results[1].tolist()
+    for j in range(1, self.num_classes+1):
+      results[j] = np.concatenate(
+          [detection[j] for detection in detections], axis=0).astype(np.float32)
+      if self.opt.nms or len(self.opt.test_scales) > 1:
+        soft_nms_39(results[j], Nt=0.5, method=2)
+      results[j] = results[j].tolist()
     return results
 
   def debug(self, debugger, images, dets, output, scale=1):
     dets = dets.detach().cpu().numpy().copy()
     dets[:, :, :4] *= self.opt.down_ratio
-    dets[:, :, 5:39] *= self.opt.down_ratio
+    dets[:, :, 5:5+self.all_num_kps*2] *= self.opt.down_ratio
     img = images[0].detach().cpu().numpy().transpose(1, 2, 0)
     img = np.clip(((
       img * self.std + self.mean) * 255.), 0, 255).astype(np.uint8)
@@ -94,10 +105,24 @@ class MultiPoseDetector(BaseDetector):
         output['hm_hp'][0].detach().cpu().numpy())
       debugger.add_blend_img(img, pred, 'pred_hmhp')
   
-  def show_results(self, debugger, image, results):
+  def show_results(self, debugger, image, results, img_id, gt=None):
     debugger.add_img(image, img_id='multi_pose')
-    for bbox in results[1]:
-      if bbox[4] > self.opt.vis_thresh:
-        debugger.add_coco_bbox(bbox[:4], 0, bbox[4], img_id='multi_pose')
-        debugger.add_coco_hp(bbox[5:39], img_id='multi_pose')
-    debugger.show_all_imgs(pause=self.pause)
+    for cls, bboxes in results.items():
+      for bbox in bboxes:
+        if bbox[4] > self.opt.vis_thresh:
+          debugger.add_coco_bbox(bbox[:4], cls-1, bbox[4], img_id='multi_pose')
+          debugger.add_coco_hp(bbox[5:5+self.all_num_kps*2], cls-1, img_id='multi_pose')
+          # if cls == 3:
+          #   print("draw:", bbox[5:27])
+    if gt is not None:
+      debugger.add_img(image, img_id='gt')
+      for bbox in gt:
+        debugger.add_coco_bbox(bbox[0,:4], bbox[0,-1], bbox[0,4], img_id='gt')
+        debugger.add_coco_hp(bbox[0,5:5+self.all_num_kps*2], bbox[0,-1], img_id='gt')
+        # if bbox[0,-1]+1 == 3:
+        #   print("gt:", bbox[0,5:27])
+
+    # debugger.show_all_imgs(pause=self.pause)
+    prefix = '{0}_' if isinstance(img_id, str) else '{0:03d}'
+    debugger.save_all_imgs(join(self.save_infer_dir, 'VThresh'+str(self.opt.vis_thresh)),
+                           prefix=prefix.format(img_id))

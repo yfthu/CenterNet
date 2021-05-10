@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import torch
 import numpy as np
+from random import randint
 
 from models.losses import FocalLoss, RegL1Loss, RegLoss, RegWeightedL1Loss
 from models.decode import multi_pose_decode
@@ -23,6 +24,8 @@ class MultiPoseLoss(torch.nn.Module):
     self.crit_reg = RegL1Loss() if opt.reg_loss == 'l1' else \
                     RegLoss() if opt.reg_loss == 'sl1' else None
     self.opt = opt
+    self.num_joints = opt.num_joints
+    self.all_num_kps = sum(self.num_joints)
 
   def forward(self, outputs, batch):
     opt = self.opt
@@ -52,29 +55,38 @@ class MultiPoseLoss(torch.nn.Module):
           batch['hp_ind'].detach().cpu().numpy(), 
           opt.output_res, opt.output_res)).to(opt.device)
 
-
       hm_loss += self.crit(output['hm'], batch['hm']) / opt.num_stacks
+
+      # print(batch['bbox_kps_cls'].size()) # (batch_size, max_objs, 28)
+      # print(batch['bbox_kps_cls'][:, -1])
+      # num_kps_cls = self.num_of_kps[int(batch['bbox_kps_cls'][-1])] if opt.num_kps_avg else 1
+
       if opt.dense_hp:
         mask_weight = batch['dense_hps_mask'].sum() + 1e-4
         hp_loss += (self.crit_kp(output['hps'] * batch['dense_hps_mask'], 
                                  batch['dense_hps'] * batch['dense_hps_mask']) / 
                                  mask_weight) / opt.num_stacks
       else:
-        hp_loss += self.crit_kp(output['hps'], batch['hps_mask'], 
+        hp_loss += self.crit_kp(output['hps'], batch['hps_mask'],
                                 batch['ind'], batch['hps']) / opt.num_stacks
+      # keypoints from center
       if opt.wh_weight > 0:
+        # width and height
         wh_loss += self.crit_reg(output['wh'], batch['reg_mask'],
                                  batch['ind'], batch['wh']) / opt.num_stacks
       if opt.reg_offset and opt.off_weight > 0:
         off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
                                   batch['ind'], batch['reg']) / opt.num_stacks
+        # center offset
       if opt.reg_hp_offset and opt.off_weight > 0:
         hp_offset_loss += self.crit_reg(
           output['hp_offset'], batch['hp_mask'],
           batch['hp_ind'], batch['hp_offset']) / opt.num_stacks
+        # keypoints offset
       if opt.hm_hp and opt.hm_hp_weight > 0:
         hm_hp_loss += self.crit_hm_hp(
           output['hm_hp'], batch['hm_hp']) / opt.num_stacks
+        # gaussian keypoints
     loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + \
            opt.off_weight * off_loss + opt.hp_weight * hp_loss + \
            opt.hm_hp_weight * hm_hp_loss + opt.off_weight * hp_offset_loss
@@ -87,6 +99,7 @@ class MultiPoseLoss(torch.nn.Module):
 class MultiPoseTrainer(BaseTrainer):
   def __init__(self, opt, model, optimizer=None):
     super(MultiPoseTrainer, self).__init__(opt, model, optimizer=optimizer)
+    self.all_num_kps = sum(opt.num_joints)
   
   def _get_losses(self, opt):
     loss_states = ['loss', 'hm_loss', 'hp_loss', 'hm_hp_loss', 
@@ -94,7 +107,7 @@ class MultiPoseTrainer(BaseTrainer):
     loss = MultiPoseLoss(opt)
     return loss_states, loss
 
-  def debug(self, batch, output, iter_id):
+  def debug(self, batch, output, epoch, iter_id):
     opt = self.opt
     reg = output['reg'] if opt.reg_offset else None
     hm_hp = output['hm_hp'] if opt.hm_hp else None
@@ -102,16 +115,17 @@ class MultiPoseTrainer(BaseTrainer):
     dets = multi_pose_decode(
       output['hm'], output['wh'], output['hps'], 
       reg=reg, hm_hp=hm_hp, hp_offset=hp_offset, K=opt.K)
-    dets = dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])
-
+    dets = dets.detach().cpu().numpy()# .reshape(1, -1, dets.shape[2])
     dets[:, :, :4] *= opt.input_res / opt.output_res
-    dets[:, :, 5:39] *= opt.input_res / opt.output_res
-    dets_gt = batch['meta']['gt_det'].numpy().reshape(1, -1, dets.shape[2])
+    dets[:, :, 5:5+self.all_num_kps*2] *= opt.input_res / opt.output_res
+
+    dets_gt = batch['bbox_kps_cls'].cpu().numpy() # .reshape(1, -1, 5)
     dets_gt[:, :, :4] *= opt.input_res / opt.output_res
-    dets_gt[:, :, 5:39] *= opt.input_res / opt.output_res
-    for i in range(1):
-      debugger = Debugger(
-        dataset=opt.dataset, ipynb=(opt.debug==3), theme=opt.debugger_theme)
+    dets_gt[:, :, 5:5+self.all_num_kps*2] *= opt.input_res / opt.output_res
+    for i in range(len(dets)):
+      # i = randint(0, len(dets))
+      debugger = Debugger(dataset=opt.dataset, ipynb=(opt.debug==4),
+                          theme=opt.debugger_theme, num_joints=opt.num_joints)
       img = batch['input'][i].detach().cpu().numpy().transpose(1, 2, 0)
       img = np.clip(((
         img * opt.std + opt.mean) * 255.), 0, 255).astype(np.uint8)
@@ -122,17 +136,20 @@ class MultiPoseTrainer(BaseTrainer):
 
       debugger.add_img(img, img_id='out_pred')
       for k in range(len(dets[i])):
-        if dets[i, k, 4] > opt.center_thresh:
+        if dets[i, k, 4] > opt.center_thresh: #vis_thresh:
           debugger.add_coco_bbox(dets[i, k, :4], dets[i, k, -1],
                                  dets[i, k, 4], img_id='out_pred')
-          debugger.add_coco_hp(dets[i, k, 5:39], img_id='out_pred')
+          debugger.add_coco_hp(dets[i, k, 5:5+self.all_num_kps*2], dets[i, k, -1], img_id='out_pred')
+      #
+      # for k in range(len(dets[i])):
+      #   debugger.add_points(dets[i, ], img_id='out_pred')
 
       debugger.add_img(img, img_id='out_gt')
       for k in range(len(dets_gt[i])):
         if dets_gt[i, k, 4] > opt.center_thresh:
           debugger.add_coco_bbox(dets_gt[i, k, :4], dets_gt[i, k, -1],
                                  dets_gt[i, k, 4], img_id='out_gt')
-          debugger.add_coco_hp(dets_gt[i, k, 5:39], img_id='out_gt')
+          debugger.add_coco_hp(dets_gt[i, k, 5:5+self.all_num_kps*2], dets_gt[i, k, -1], img_id='out_gt')
 
       if opt.hm_hp:
         pred = debugger.gen_colormap_hp(output['hm_hp'][i].detach().cpu().numpy())
@@ -140,10 +157,17 @@ class MultiPoseTrainer(BaseTrainer):
         debugger.add_blend_img(img, pred, 'pred_hmhp')
         debugger.add_blend_img(img, gt, 'gt_hmhp')
 
-      if opt.debug == 4:
-        debugger.save_all_imgs(opt.debug_dir, prefix='{}'.format(iter_id))
+      if opt.debug == 5:
+        debugger.save_all_imgs(opt.debug_dir, prefix='{0:03d}_{1:02d}_'.format(epoch, iter_id))
       else:
         debugger.show_all_imgs(pause=True)
+  #
+  # def compute_visuals(self):
+  #   pass
+
+  def get_current_visuals(self, output, batch, results):
+    raise NotImplementedError
+    # return (images, bboxes_pre, kps_pre, bboxes_gt, kps_gt)
 
   def save_result(self, output, batch, results):
     reg = output['reg'] if self.opt.reg_offset else None
@@ -157,5 +181,5 @@ class MultiPoseTrainer(BaseTrainer):
     dets_out = multi_pose_post_process(
       dets.copy(), batch['meta']['c'].cpu().numpy(),
       batch['meta']['s'].cpu().numpy(),
-      output['hm'].shape[2], output['hm'].shape[3])
+      output['hm'].shape[2], output['hm'].shape[3], num_joints=self.num_joints)
     results[batch['meta']['img_id'].cpu().numpy()[0]] = dets_out[0]

@@ -7,6 +7,7 @@ import numpy as np
 from progress.bar import Bar
 import time
 import torch
+import os
 
 from models.model import create_model, load_model
 from utils.image import get_affine_transform
@@ -22,13 +23,16 @@ class BaseDetector(object):
     
     print('Creating model...')
     self.model = create_model(opt.arch, opt.heads, opt.head_conv)
-    self.model = load_model(self.model, opt.load_model)
+    self.model, self.infer_epoch = load_model(self.model, opt.load_model)
+    opt.save_infer_dir = os.path.join(opt.save_infer_dir, 'epoch'+str(self.infer_epoch))
+    if not os.path.exists(opt.save_infer_dir):
+      os.makedirs(opt.save_infer_dir)
     self.model = self.model.to(opt.device)
     self.model.eval()
 
     self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
     self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
-    self.max_per_image = 100
+    self.max_per_image = 40
     self.num_classes = opt.num_classes
     self.scales = opt.test_scales
     self.opt = opt
@@ -79,13 +83,14 @@ class BaseDetector(object):
   def show_results(self, debugger, image, results):
    raise NotImplementedError
 
-  def run(self, image_or_path_or_tensor, meta=None):
+  def run(self, image_or_path_or_tensor, meta=None, img_id=None):
     load_time, pre_time, net_time, dec_time, post_time = 0, 0, 0, 0, 0
     merge_time, tot_time = 0, 0
-    debugger = Debugger(dataset=self.opt.dataset, ipynb=(self.opt.debug==3),
-                        theme=self.opt.debugger_theme)
+    debugger = Debugger(dataset=self.opt.dataset, ipynb=(self.opt.debug==4),
+                        theme=self.opt.debugger_theme, num_joints=self.opt.num_joints)
     start_time = time.time()
     pre_processed = False
+    gt = None
     if isinstance(image_or_path_or_tensor, np.ndarray):
       image = image_or_path_or_tensor
     elif type(image_or_path_or_tensor) == type (''): 
@@ -94,6 +99,7 @@ class BaseDetector(object):
       image = image_or_path_or_tensor['image'][0].numpy()
       pre_processed_images = image_or_path_or_tensor
       pre_processed = True
+      gt = image_or_path_or_tensor['bbox_kps_gt'] if self.opt.debug == 2 else None
     
     loaded_time = time.time()
     load_time += (loaded_time - start_time)
@@ -120,7 +126,7 @@ class BaseDetector(object):
       decode_time = time.time()
       dec_time += decode_time - forward_time
       
-      if self.opt.debug >= 2:
+      if self.opt.debug >= 3:
         self.debug(debugger, images, dets, output, scale)
       
       dets = self.post_process(dets, meta, scale)
@@ -137,7 +143,7 @@ class BaseDetector(object):
     tot_time += end_time - start_time
 
     if self.opt.debug >= 1:
-      self.show_results(debugger, image, results)
+      self.show_results(debugger, image, results, img_id, gt=gt)
     
     return {'results': results, 'tot': tot_time, 'load': load_time,
             'pre': pre_time, 'net': net_time, 'dec': dec_time,

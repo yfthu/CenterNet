@@ -95,7 +95,7 @@ class DddTrainer(BaseTrainer):
         batch['meta']['s'].detach().numpy(), calib, opt)
       #for i in range(input.size(0)):
       for i in range(1):
-        debugger = Debugger(dataset=opt.dataset, ipynb=(opt.debug==3),
+        debugger = Debugger(dataset=opt.dataset, ipynb=(opt.debug==4),
                             theme=opt.debugger_theme)
         img = batch['input'][i].detach().cpu().numpy().transpose(1, 2, 0)
         img = ((img * self.opt.std + self.opt.mean) * 255.).astype(np.uint8)
@@ -129,7 +129,7 @@ class DddTrainer(BaseTrainer):
           batch['meta']['image_path'][i], dets_pred[i], calib[i],
           opt.center_thresh, pred, 'bird_pred_gt', img_id='out')
         # debugger.add_img(img, img_id='out')
-        if opt.debug ==4:
+        if opt.debug == 5:
           debugger.save_all_imgs(opt.debug_dir, prefix='{}'.format(iter_id))
         else:
           debugger.show_all_imgs(pause=True)

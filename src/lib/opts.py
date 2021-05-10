@@ -5,6 +5,7 @@ from __future__ import print_function
 import argparse
 import os
 import sys
+import numpy as np
 
 class opts(object):
   def __init__(self):
@@ -16,12 +17,6 @@ class opts(object):
                              help='coco | kitti | coco_hp | pascal')
     self.parser.add_argument('--exp_id', default='default')
     self.parser.add_argument('--test', action='store_true')
-    self.parser.add_argument('--debug', type=int, default=0,
-                             help='level of visualization.'
-                                  '1: only show the final detection results'
-                                  '2: show the network output features'
-                                  '3: use matplot to display' # useful when lunching training with ipython notebook
-                                  '4: save all visualizations to disk')
     self.parser.add_argument('--demo', default='', 
                              help='path to image/ image folders/ video. '
                                   'or "webcam"')
@@ -40,7 +35,7 @@ class opts(object):
                              help='dataloader threads. 0 for single-thread.')
     self.parser.add_argument('--not_cuda_benchmark', action='store_true',
                              help='disable when the input size is not fixed.')
-    self.parser.add_argument('--seed', type=int, default=317, 
+    self.parser.add_argument('--seed', type=int, default=None, #317,
                              help='random seed') # from CornerNet
 
     # log
@@ -94,9 +89,8 @@ class opts(object):
                              help='default: #samples / batch_size.')
     self.parser.add_argument('--val_intervals', type=int, default=5,
                              help='number of epochs to run validation.')
-    self.parser.add_argument('--trainval', action='store_true',
-                             help='include validation in training and '
-                                  'test on test set')
+    self.parser.add_argument('--split',  type=str,
+                             help='train|val|trainval|test1|test2|...')
 
     # test
     self.parser.add_argument('--flip_test', action='store_true',
@@ -151,7 +145,7 @@ class opts(object):
     # loss
     self.parser.add_argument('--mse_loss', action='store_true',
                              help='use mse loss or focal loss to train '
-                                  'keypoint heatmaps.')
+                                  'keypoint heatmaps.') # if False, use Focal
     # ctdet
     self.parser.add_argument('--reg_loss', default='l1',
                              help='regression loss: sl1 | l1 | l2')
@@ -176,7 +170,7 @@ class opts(object):
     self.parser.add_argument('--peak_thresh', type=float, default=0.2)
     
     # task
-    # ctdet
+    # ctdet, centernet
     self.parser.add_argument('--norm_wh', action='store_true',
                              help='L1(\hat(y) / y, 1) or L1(\hat(y), y)')
     self.parser.add_argument('--dense_wh', action='store_true',
@@ -186,7 +180,7 @@ class opts(object):
                              help='category specific bounding box size.')
     self.parser.add_argument('--not_reg_offset', action='store_true',
                              help='not regress local offset.')
-    # exdet
+    # exdet, extremenet
     self.parser.add_argument('--agnostic_ex', action='store_true',
                              help='use category agnostic extreme points.')
     self.parser.add_argument('--scores_thresh', type=float, default=0.1,
@@ -207,6 +201,10 @@ class opts(object):
                                   'human joint heatmaps.')
     self.parser.add_argument('--not_reg_bbox', action='store_true',
                              help='not regression bounding box size.')
+    # self.parser.add_argument('--num_kps_avg', action='store_true',
+    #                          help='keypoints related losses average over kps.')
+    self.parser.add_argument('--add_kps', action='store_true',
+                             help='manually add kps for barrel.')
     
     # ground truth validation
     self.parser.add_argument('--eval_oracle_hm', action='store_true', 
@@ -223,6 +221,31 @@ class opts(object):
                              help='use ground truth human joint local offset.')
     self.parser.add_argument('--eval_oracle_dep', action='store_true', 
                              help='use ground truth depth.')
+
+    # visdom visualizer
+    self.parser.add_argument('--debug', type=int, default=0,
+                             help='level of visualization.'
+                                  '1: only save the final detection results'
+                                  '2: save the final detection result & ground truth'
+                                  '3: save the network output features'
+                                  '4: use matplot to display' # useful when lunching training with ipython notebook
+                                  '5: save all visualizations to disk')
+    # self.parser.add_argument('--display_freq', type=int, default=10,
+    #                          help='frequency of showing training results on screen')
+    self.parser.add_argument('--display_id', type=int, default=1,
+                             help='window id of the web display')
+    self.parser.add_argument('--display_server', type=str, default="http://localhost",
+                             help='visdom server of the web display')
+    self.parser.add_argument('--display_env', type=str, default='main',
+                             help='visdom display environment name (default is "main")')
+    self.parser.add_argument('--display_port', type=int, default=8099,
+                             help='visdom port of the web display')
+    # self.parser.add_argument('--update_html_freq', type=int, default=20,
+    #                          help='frequency of saving training results to html')
+    self.parser.add_argument('--html', action='store_true',
+                             help='save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
+    self.parser.add_argument('--display_winsize', type=int, default=1280,
+                             help='display window size for both visdom and HTML')
 
   def parse(self, args=''):
     if args == '':
@@ -248,14 +271,14 @@ class opts(object):
     opt.pad = 127 if 'hourglass' in opt.arch else 31
     opt.num_stacks = 2 if opt.arch == 'hourglass' else 1
 
-    if opt.trainval:
+    if opt.split == 'trainval':
       opt.val_intervals = 100000000
 
-    if opt.debug > 0:
-      opt.num_workers = 0
-      opt.batch_size = 1
-      opt.gpus = [opt.gpus[0]]
-      opt.master_batch_size = -1
+    # if opt.debug > 0:
+    #   opt.num_workers = 0
+    #   opt.batch_size = 1
+    #   opt.gpus = [opt.gpus[0]]
+    #   opt.master_batch_size = -1
 
     if opt.master_batch_size == -1:
       opt.master_batch_size = opt.batch_size // len(opt.gpus)
@@ -268,7 +291,7 @@ class opts(object):
       opt.chunk_sizes.append(slave_chunk_size)
     print('training chunk_sizes:', opt.chunk_sizes)
 
-    opt.root_dir = os.path.join(os.path.dirname(__file__), '..', '..')
+    opt.root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
     opt.data_dir = os.path.join(opt.root_dir, 'data')
     opt.exp_dir = os.path.join(opt.root_dir, 'exp', opt.task)
     opt.save_dir = os.path.join(opt.exp_dir, opt.exp_id)
@@ -320,12 +343,17 @@ class opts(object):
         opt.heads.update({'reg': 2})
     elif opt.task == 'multi_pose':
       # assert opt.dataset in ['coco_hp']
+      opt.num_classes = dataset.num_classes
+      opt.default_resolution = dataset.default_resolution
+      opt.mean = dataset.mean
+      opt.std = dataset.std
+      opt.num_joints = dataset.num_joints
       opt.flip_idx = dataset.flip_idx
-      opt.heads = {'hm': opt.num_classes, 'wh': 2, 'hps': 34}
+      opt.heads = {'hm': opt.num_classes, 'wh': 2, 'hps': 2*sum(dataset.num_joints)}
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
       if opt.hm_hp:
-        opt.heads.update({'hm_hp': 17})
+        opt.heads.update({'hm_hp': sum(dataset.num_joints)})
       if opt.reg_hp_offset:
         opt.heads.update({'hp_offset': 2})
     else:
@@ -335,18 +363,18 @@ class opts(object):
 
   def init(self, args=''):
     default_dataset_info = {
-      'ctdet': {'default_resolution': [512, 512], 'num_classes': 80, 
+      'ctdet': {'default_resolution': [512, 512], 'num_classes': 5,
                 'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
                 'dataset': 'coco'},
       'exdet': {'default_resolution': [512, 512], 'num_classes': 80, 
                 'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
                 'dataset': 'coco'},
       'multi_pose': {
-        'default_resolution': [512, 512], 'num_classes': 1, 
-        'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
-        'dataset': 'coco_hp', 'num_joints': 17,
-        'flip_idx': [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], 
-                     [11, 12], [13, 14], [15, 16]]},
+        'default_resolution': [704, 1280], 'num_classes': 5,
+        'mean': np.array([0.485, 0.456, 0.406], np.float32).reshape(1, 1, 3),
+        'std': np.array([0.229, 0.224, 0.225], np.float32).reshape(1, 1, 3),
+        'dataset': 'coco_hp', 'num_joints': [4,3,2,0,2],
+        'flip_idx': [[[0,1], [2,3]], [[1,2]], [[0,1]], [], []]}, # count front/rear flipping?
       'ddd': {'default_resolution': [384, 1280], 'num_classes': 3, 
                 'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225],
                 'dataset': 'kitti'},
@@ -356,6 +384,9 @@ class opts(object):
         for k, v in entries.items():
           self.__setattr__(k, v)
     opt = self.parse(args)
+    if opt.add_kps:
+        default_dataset_info['multi_pose']['num_joints'] = [4,3,2,3,2]
+        default_dataset_info['multi_pose']['flip_idx'] = [[[0,1], [2,3]], [[1,2]], [[0,1]], [[1,2]], []]
     dataset = Struct(default_dataset_info[opt.task])
     opt.dataset = dataset.dataset
     opt = self.update_dataset_info_and_set_heads(opt, dataset)

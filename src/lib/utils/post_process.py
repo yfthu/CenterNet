@@ -100,15 +100,42 @@ def ctdet_post_process(dets, c, s, h, w, num_classes):
   return ret
 
 
-def multi_pose_post_process(dets, c, s, h, w):
+def multi_pose_post_process(dets, c, s, h, w, num_classes=5, num_joints=[4,3,2,0,2]):
   # dets: batch x max_dets x 40
-  # return list of 39 in image coord
+  # return list of 39 in image coord, 4+1+17*2
+  all_num_kps = sum(num_joints)
+  num_joints_a = num_joints
+  num_joints_a.insert(0, 0)
+  cls_kps_masks = []
+  for i, num_kps in enumerate(num_joints_a[1:]):
+    kps_mask = np.zeros(sum(num_joints_a))
+    start_idx = sum(num_joints_a[:i+1])
+    kps_mask[start_idx: start_idx+num_kps] = 1
+    cls_kps_masks.append(kps_mask.reshape(-1,1).astype(np.int32))
+  num_joints_a.pop(0)
+  # cls_kps_masks = [np.array([1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0], dtype=np.int32),
+  #                  np.array([0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0], dtype=np.int32),
+  #                  np.array([0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0], dtype=np.int32),
+  #                  np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=np.int32),
+  #                  np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1], dtype=np.int32)]
   ret = []
+  # print("dets shape:", dets.shape) # (1, 100, 28)
   for i in range(dets.shape[0]):
-    bbox = transform_preds(dets[i, :, :4].reshape(-1, 2), c[i], s[i], (w, h))
-    pts = transform_preds(dets[i, :, 5:39].reshape(-1, 2), c[i], s[i], (w, h))
-    top_preds = np.concatenate(
-      [bbox.reshape(-1, 4), dets[i, :, 4:5], 
-       pts.reshape(-1, 34)], axis=1).astype(np.float32).tolist()
-    ret.append({np.ones(1, dtype=np.int32)[0]: top_preds})
+    bbox = transform_preds(dets[i, :, :4].reshape(-1, 2), c[i], s[i], (w, h)).reshape(-1, 4) # 200,2 -> 100,4
+    pts = transform_preds(dets[i, :, 5:5+all_num_kps*2].reshape(-1, 2), c[i], s[i], (w, h)).reshape(-1, all_num_kps*2) # 1100,2 -> 100,22
+    conf = dets[i, :, 4:5] # 100,1
+    # cls_ids = dets[i, :, -1]
+    ret_classes = {}
+    for j in range(num_classes):
+      mask_j = cls_kps_masks[j].reshape(all_num_kps,1).repeat(2,1).reshape(1,-1)
+      idx_j = dets[i][:, -1]==j
+      top_preds = np.concatenate(
+        [bbox[idx_j], conf[idx_j],
+         pts[idx_j]*mask_j], axis=1).astype(np.float32).tolist()
+      ret_classes[j+1] = top_preds
+      # if j==2:
+      #   print("dets:", dets[i, :, 5:27][idx_j]*mask_j[0])
+      #   print("transformed:", pts[idx_j]*mask_j[0])
+    ret.append(ret_classes)
+      #dets: 0:4 bbox, 4:5 confidence, 5:27 pts
   return ret

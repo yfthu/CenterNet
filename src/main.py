@@ -14,15 +14,15 @@ from models.data_parallel import DataParallel
 from logger import Logger
 from datasets.dataset_factory import get_dataset
 from trains.train_factory import train_factory
-
+from utils.visualizer import Visualizer
 
 def main(opt):
-  torch.manual_seed(opt.seed)
+  if opt.seed is not None:
+      torch.manual_seed(opt.seed)
   torch.backends.cudnn.benchmark = not opt.not_cuda_benchmark and not opt.test
   Dataset = get_dataset(opt.dataset, opt.task)
-  opt = opts().update_dataset_info_and_set_heads(opt, Dataset)
+  # opt = opts().update_dataset_info_and_set_heads(opt, Dataset)
   print(opt)
-
   logger = Logger(opt)
 
   os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
@@ -64,6 +64,7 @@ def main(opt):
   )
 
   print('Starting training...')
+  vis = Visualizer(opt)
   best = 1e10
   for epoch in range(start_epoch + 1, opt.num_epochs + 1):
     mark = epoch if opt.save_all else 'last'
@@ -72,6 +73,9 @@ def main(opt):
     for k, v in log_dict_train.items():
       logger.scalar_summary('train_{}'.format(k), v, epoch)
       logger.write('{} {:8f} | '.format(k, v))
+    log_dict_train.pop('time', None)
+    if opt.display_id > 0:
+        vis.plot_current_losses(epoch, float(epoch)/opt.num_epochs, log_dict_train)
     if opt.val_intervals > 0 and epoch % opt.val_intervals == 0:
       save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(mark)), 
                  epoch, model, optimizer)
@@ -88,6 +92,7 @@ def main(opt):
       save_model(os.path.join(opt.save_dir, 'model_last.pth'), 
                  epoch, model, optimizer)
     logger.write('\n')
+
     if epoch in opt.lr_step:
       save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)), 
                  epoch, model, optimizer)
@@ -98,5 +103,5 @@ def main(opt):
   logger.close()
 
 if __name__ == '__main__':
-  opt = opts().parse()
+  opt = opts().init()
   main(opt)

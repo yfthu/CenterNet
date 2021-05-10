@@ -81,7 +81,7 @@ def load_model(model, model_path, optimizer=None, resume=False,
   if optimizer is not None:
     return model, optimizer, start_epoch
   else:
-    return model
+    return model, checkpoint['epoch']
 
 def save_model(path, epoch, model, optimizer=None):
   if isinstance(model, torch.nn.DataParallel):

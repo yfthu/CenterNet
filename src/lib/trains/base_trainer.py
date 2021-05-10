@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from random import sample
 import time
 import torch
 from progress.bar import Bar
@@ -41,7 +42,7 @@ class BaseTrainer(object):
         if isinstance(v, torch.Tensor):
           state[k] = v.to(device=device, non_blocking=True)
 
-  def run_epoch(self, phase, epoch, data_loader):
+  def run_epoch(self, phase, epoch, data_loader, vis=None):
     model_with_loss = self.model_with_loss
     if phase == 'train':
       model_with_loss.train()
@@ -58,6 +59,7 @@ class BaseTrainer(object):
     num_iters = len(data_loader) if opt.num_iters < 0 else opt.num_iters
     bar = Bar('{}/{}'.format(opt.task, opt.exp_id), max=num_iters)
     end = time.time()
+    ifshown = sample(range(num_iters), 5) if (phase=='val' and opt.debug) else []
     for iter_id, batch in enumerate(data_loader):
       if iter_id >= num_iters:
         break
@@ -90,20 +92,28 @@ class BaseTrainer(object):
           print('{}/{}| {}'.format(opt.task, opt.exp_id, Bar.suffix)) 
       else:
         bar.next()
-      
-      if opt.debug > 0:
-        self.debug(batch, output, iter_id)
-      
+
+      if iter_id in ifshown:
+        self.debug(batch, output, epoch, iter_id)
+
       if opt.test:
         self.save_result(output, batch, results)
       del output, loss, loss_stats
-    
+
+
+    # if epoch % opt.display_freq == 0 and vis is not None:  # display images on visdom and save images to a HTML file
+    #   save_result = epoch % opt.update_html_freq == 0
+    #   vis.display_current_results(self.get_current_visuals(output, batch, results), epoch, save_result)
+
     bar.finish()
     ret = {k: v.avg for k, v in avg_loss_stats.items()}
     ret['time'] = bar.elapsed_td.total_seconds() / 60.
     return ret, results
   
   def debug(self, batch, output, iter_id):
+    raise NotImplementedError
+
+  def get_current_visuals(self, batch, output, iter_id):
     raise NotImplementedError
 
   def save_result(self, output, batch, results):

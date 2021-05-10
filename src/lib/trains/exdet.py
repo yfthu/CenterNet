@@ -58,7 +58,7 @@ class ExdetTrainer(BaseTrainer):
     detections[:, :, :4] *= opt.input_res / opt.output_res
     for i in range(1):
       debugger = Debugger(
-        dataset=opt.dataset, ipynb=(opt.debug==3), theme=opt.debugger_theme)
+        dataset=opt.dataset, ipynb=(opt.debug==4), theme=opt.debugger_theme)
       pred_hm = np.zeros((opt.input_res, opt.input_res, 3), dtype=np.uint8)
       gt_hm = np.zeros((opt.input_res, opt.input_res, 3), dtype=np.uint8)
       img = batch['input'][i].detach().cpu().numpy().transpose(1, 2, 0)
@@ -70,7 +70,7 @@ class ExdetTrainer(BaseTrainer):
         if p != 'c':
           pred_hm = np.maximum(pred_hm, pred)
           gt_hm = np.maximum(gt_hm, gt)
-        if p == 'c' or opt.debug > 2:
+        if p == 'c' or opt.debug > 3:
           debugger.add_blend_img(img, pred, 'pred_{}'.format(p))
           debugger.add_blend_img(img, gt, 'gt_{}'.format(p))
       debugger.add_blend_img(img, pred_hm, 'pred')
@@ -80,7 +80,7 @@ class ExdetTrainer(BaseTrainer):
         if detections[i, k, 4] > 0.1:
           debugger.add_coco_bbox(detections[i, k, :4], detections[i, k, -1],
                                  detections[i, k, 4], img_id='out')
-      if opt.debug == 4:
+      if opt.debug == 5:
         debugger.save_all_imgs(opt.debug_dir, prefix='{}'.format(iter_id))
       else:
         debugger.show_all_imgs(pause=True)

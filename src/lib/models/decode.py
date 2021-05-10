@@ -497,7 +497,7 @@ def ctdet_decode(heat, wh, reg=None, cat_spec_wh=False, K=100):
 def multi_pose_decode(
     heat, wh, kps, reg=None, hm_hp=None, hp_offset=None, K=100):
   batch, cat, height, width = heat.size()
-  num_joints = kps.shape[1] // 2
+  num_joints = kps.shape[1] // 2 # 11
   # heat = torch.sigmoid(heat)
   # perform nms on heatmaps
   heat = _nms(heat)
@@ -505,6 +505,7 @@ def multi_pose_decode(
 
   kps = _transpose_and_gather_feat(kps, inds)
   kps = kps.view(batch, K, num_joints * 2)
+  # print(kps[0, :, 0:8])
   kps[..., ::2] += xs.view(batch, K, 1).expand(batch, K, num_joints)
   kps[..., 1::2] += ys.view(batch, K, 1).expand(batch, K, num_joints)
   if reg is not None:

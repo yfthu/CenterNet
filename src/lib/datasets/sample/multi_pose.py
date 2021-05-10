@@ -38,6 +38,8 @@ class MultiPoseDataset(data.Dataset):
 
     height, width = img.shape[0], img.shape[1]
     c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
+
+
     s = max(img.shape[0], img.shape[1]) * 1.0
     rot = 0
 
@@ -77,47 +79,73 @@ class MultiPoseDataset(data.Dataset):
     inp = inp.transpose(2, 0, 1)
 
     output_res = self.opt.output_res
-    num_joints = self.num_joints
+    num_joints = self.num_joints # a list of kps for 0-4 classes
+    all_num_kps = sum(num_joints)
+    cls_start_idx = [sum(num_joints[:i]) for i in range(len(num_joints))] # [0, 4, 7, 9, 9] # [0, 4, 7, 9, 12]
     trans_output_rot = get_affine_transform(c, s, rot, [output_res, output_res])
     trans_output = get_affine_transform(c, s, 0, [output_res, output_res])
 
-    hm = np.zeros((self.num_classes, output_res, output_res), dtype=np.float32)
-    hm_hp = np.zeros((num_joints, output_res, output_res), dtype=np.float32)
-    dense_kps = np.zeros((num_joints, 2, output_res, output_res), 
-                          dtype=np.float32)
-    dense_kps_mask = np.zeros((num_joints, output_res, output_res), 
-                               dtype=np.float32)
-    wh = np.zeros((self.max_objs, 2), dtype=np.float32)
-    kps = np.zeros((self.max_objs, num_joints * 2), dtype=np.float32)
-    reg = np.zeros((self.max_objs, 2), dtype=np.float32)
-    ind = np.zeros((self.max_objs), dtype=np.int64)
+    # max_objs: how many targets might be present in one sample
+    # all_num_kps: including heads of all classes, 4 for vehicle, 2 for pedestrain, ...
+
+    # object level: center, local offset, object size
+    hm = np.zeros((self.num_classes, output_res, output_res), dtype=np.float32) # bbox center
+    wh = np.zeros((self.max_objs, 2), dtype=np.float32)  # bbox width and height
+    ind = np.zeros((self.max_objs), dtype=np.int64) # index of center if image flatten
+    reg = np.zeros((self.max_objs, 2), dtype=np.float32) # float center - int center = offset
     reg_mask = np.zeros((self.max_objs), dtype=np.uint8)
-    kps_mask = np.zeros((self.max_objs, self.num_joints * 2), dtype=np.uint8)
-    hp_offset = np.zeros((self.max_objs * num_joints, 2), dtype=np.float32)
-    hp_ind = np.zeros((self.max_objs * num_joints), dtype=np.int64)
-    hp_mask = np.zeros((self.max_objs * num_joints), dtype=np.int64)
+
+    # keypoint level: kps locations, kps heatmap, kps offset
+    kps = np.zeros((self.max_objs, all_num_kps * 2), dtype=np.float32) # joint location from bbox center
+    kps_mask = np.zeros((self.max_objs, all_num_kps * 2), dtype=np.uint8)
+    hp_offset = np.zeros((self.max_objs * all_num_kps, 2), dtype=np.float32) # joint offset
+    hp_ind = np.zeros((self.max_objs * all_num_kps), dtype=np.int64) # joint offset from center
+    hp_mask = np.zeros((self.max_objs * all_num_kps), dtype=np.int64)
+    hm_hp = np.zeros((all_num_kps, output_res, output_res), dtype=np.float32) # joint heatmap
+
+    dense_kps = np.zeros((all_num_kps, 2, output_res, output_res), dtype=np.float32) #
+    dense_kps_mask = np.zeros((all_num_kps, output_res, output_res), dtype=np.float32) # joint heatmap
 
     draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else \
                     draw_umich_gaussian
+
+    # for visualization
+    bbox_kps_cls = np.zeros((self.max_objs, 5+all_num_kps*2+1), dtype=np.float32)
 
     gt_det = []
     for k in range(num_objs):
       ann = anns[k]
       bbox = self._coco_box_to_bbox(ann['bbox'])
       cls_id = int(ann['category_id']) - 1
-      pts = np.array(ann['keypoints'], np.float32).reshape(num_joints, 3)
+      # if cls_id != 3:
+      #   pass
+      num_kpts_cls = num_joints[cls_id] # should have
+      try:
+        pts = np.array(ann['keypoints'], np.float32).reshape(all_num_kps, 3)
+      except ValueError as ve:
+        print(bbox, ann['keypoints'], num_kpts_cls)
+      # all_pts = np.zeros((all_num_kps, 2), dtype=np.float32)
+      has_kpts = pts[:, 2].sum() > 0 # but have
+      pts = pts[:, :2]
+      # print(cls_id, num_kpts_cls, has_kpts)
+      # if has_kpts:
+      #   try:
+      #     all_pts[cls_start_idx[cls_id]:cls_start_idx[cls_id]+num_kpts_cls] = pts.copy()
+      #   except ValueError as ve:
+      #     print(pts, all_pts, cls_start_idx[cls_id], cls_start_idx[cls_id]+num_kpts_cls)
       if flipped:
         bbox[[0, 2]] = width - bbox[[2, 0]] - 1
-        pts[:, 0] = width - pts[:, 0] - 1
-        for e in self.flip_idx:
-          pts[e[0]], pts[e[1]] = pts[e[1]].copy(), pts[e[0]].copy()
+        if has_kpts:
+          pts[:, 0] = width - pts[:, 0] - 1
+          for e in self.flip_idx[cls_id]:
+            pts[e[0]], pts[e[1]] = pts[e[1]].copy(), pts[e[0]].copy()
       bbox[:2] = affine_transform(bbox[:2], trans_output)
       bbox[2:] = affine_transform(bbox[2:], trans_output)
       bbox = np.clip(bbox, 0, output_res - 1)
       h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
       if (h > 0 and w > 0) or (rot != 0):
         radius = gaussian_radius((math.ceil(h), math.ceil(w)))
-        radius = self.opt.hm_gauss if self.opt.mse_loss else max(0, int(radius)) 
+        radius = self.opt.hm_gauss if self.opt.mse_loss else max(0, int(radius))
         ct = np.array(
           [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
         ct_int = ct.astype(np.int32)
@@ -125,41 +153,49 @@ class MultiPoseDataset(data.Dataset):
         ind[k] = ct_int[1] * output_res + ct_int[0]
         reg[k] = ct - ct_int
         reg_mask[k] = 1
-        num_kpts = pts[:, 2].sum()
-        if num_kpts == 0:
-          hm[cls_id, ct_int[1], ct_int[0]] = 0.9999
+        # num_kpts = pts[:, 2].sum()
+        if not has_kpts:
+          hm[cls_id, ct_int[1], ct_int[0]] = 0.9999 # ?
           reg_mask[k] = 0
 
         hp_radius = gaussian_radius((math.ceil(h), math.ceil(w)))
         hp_radius = self.opt.hm_gauss \
-                    if self.opt.mse_loss else max(0, int(hp_radius)) 
-        for j in range(num_joints):
-          if pts[j, 2] > 0:
-            pts[j, :2] = affine_transform(pts[j, :2], trans_output_rot)
+                    if self.opt.mse_loss else max(0, int(hp_radius))
+        # two considerations: no kps like class bucket, and missing kps
+        if has_kpts:
+          for j in range(cls_start_idx[cls_id], cls_start_idx[cls_id] + num_kpts_cls):
+            pts[j] = affine_transform(pts[j], trans_output_rot)
             if pts[j, 0] >= 0 and pts[j, 0] < output_res and \
                pts[j, 1] >= 0 and pts[j, 1] < output_res:
-              kps[k, j * 2: j * 2 + 2] = pts[j, :2] - ct_int
+              kps[k, j * 2: j * 2 + 2] = pts[j] - ct_int
               kps_mask[k, j * 2: j * 2 + 2] = 1
-              pt_int = pts[j, :2].astype(np.int32)
-              hp_offset[k * num_joints + j] = pts[j, :2] - pt_int
-              hp_ind[k * num_joints + j] = pt_int[1] * output_res + pt_int[0]
-              hp_mask[k * num_joints + j] = 1
+              # here the mask treats keypoints not belonging to the class, and kps not existing equally
+              pt_int = pts[j].astype(np.int32)
+              hp_offset[k * all_num_kps + j] = pts[j] - pt_int
+              hp_ind[k * all_num_kps + j] = pt_int[1] * output_res + pt_int[0]
+              hp_mask[k * all_num_kps + j] = 1
               if self.opt.dense_hp:
                 # must be before draw center hm gaussian
-                draw_dense_reg(dense_kps[j], hm[cls_id], ct_int, 
+                draw_dense_reg(dense_kps[j], hm[cls_id], ct_int,
                                pts[j, :2] - ct_int, radius, is_offset=True)
                 draw_gaussian(dense_kps_mask[j], ct_int, radius)
               draw_gaussian(hm_hp[j], pt_int, hp_radius)
+
         draw_gaussian(hm[cls_id], ct_int, radius)
-        gt_det.append([ct[0] - w / 2, ct[1] - h / 2, 
-                       ct[0] + w / 2, ct[1] + h / 2, 1] + 
-                       pts[:, :2].reshape(num_joints * 2).tolist() + [cls_id])
+        gt_det.append([ct[0] - w / 2, ct[1] - h / 2,
+                       ct[0] + w / 2, ct[1] + h / 2, 1] +
+                       pts.reshape(all_num_kps * 2).tolist() + [cls_id])
+        bbox_kps_cls[k] = np.array([ct[0] - w / 2, ct[1] - h / 2,
+                                   ct[0] + w / 2, ct[1] + h / 2, 1] +
+                                   pts.reshape(all_num_kps * 2).tolist()
+                                   + [cls_id], dtype=np.float32)
+
     if rot != 0:
       hm = hm * 0 + 0.9999
       reg_mask *= 0
       kps_mask *= 0
     ret = {'input': inp, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh,
-           'hps': kps, 'hps_mask': kps_mask}
+           'hps': kps, 'hps_mask': kps_mask, 'bbox_kps_cls': bbox_kps_cls}
     if self.opt.dense_hp:
       dense_kps = dense_kps.reshape(num_joints * 2, output_res, output_res)
       dense_kps_mask = dense_kps_mask.reshape(
@@ -175,9 +211,10 @@ class MultiPoseDataset(data.Dataset):
       ret.update({'hm_hp': hm_hp})
     if self.opt.reg_hp_offset:
       ret.update({'hp_offset': hp_offset, 'hp_ind': hp_ind, 'hp_mask': hp_mask})
-    if self.opt.debug > 0 or not self.split == 'train':
+    if not self.split == 'train':
       gt_det = np.array(gt_det, dtype=np.float32) if len(gt_det) > 0 else \
-               np.zeros((1, 40), dtype=np.float32)
+               np.zeros((1, 5 + all_num_kps * 2 + 1), dtype=np.float32)
       meta = {'c': c, 's': s, 'gt_det': gt_det, 'img_id': img_id}
       ret['meta'] = meta
+    # print(inp.shape) # (3,1280,1280)
     return ret
