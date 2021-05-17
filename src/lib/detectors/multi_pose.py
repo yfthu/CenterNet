@@ -58,7 +58,7 @@ class MultiPoseDetector(BaseDetector):
       # print(output['hps'].size()) # [1, 22, 256, 488]
       dets = multi_pose_decode(
         output['hm'], output['wh'], output['hps'],
-        reg=reg, hm_hp=hm_hp, hp_offset=hp_offset, K=self.opt.K)
+        reg=reg, hm_hp=hm_hp, hp_offset=hp_offset, K=self.opt.K) # reg: 中心点的偏移 wh:bbox的宽和高
       # print(dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])[:, :, 5:13])
     if return_time:
       return output, dets, forward_time

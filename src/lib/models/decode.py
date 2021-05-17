@@ -556,6 +556,13 @@ def multi_pose_decode(
           batch, num_joints, K, 1, 2)
       hm_kps = hm_kps.gather(3, min_ind)
       hm_kps = hm_kps.view(batch, num_joints, K, 2)
+
+      #ziji todo
+      # hm_score_factor = (torch.nn.ReLU6()(6*(4 * hm_score - 0.3))) / 6.0 # 0.3 -> 0.9, 0.1->0.1
+      # hm_kps = hm_score_factor * hm_kps + (1-hm_score_factor) * kps
+      #ziji todo end
+
+
       l = bboxes[:, :, 0].view(batch, 1, K, 1).expand(batch, num_joints, K, 1)
       t = bboxes[:, :, 1].view(batch, 1, K, 1).expand(batch, num_joints, K, 1)
       r = bboxes[:, :, 2].view(batch, 1, K, 1).expand(batch, num_joints, K, 1)
