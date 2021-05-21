@@ -247,13 +247,14 @@ class opts(object):
     self.parser.add_argument('--display_winsize', type=int, default=1280,
                              help='display window size for both visdom and HTML')
     # multi_pose_3d
-    self.parser.add_argument('--train_anno_dir', type=str,
+    self.parser.add_argument('--train_anno_dir', type=str, default="/data1/yangfan/HOLODataset/20210104/result/1215_3D数据筛选前视_02_result/",
                              help='ziji: heduo 2nd batch annotation dir')
-    self.parser.add_argument('--val_anno_dir', type=str,
+    self.parser.add_argument('--val_anno_dir', type=str, default="/data1/yangfan/HOLODataset/20210104/result/1218_3D数据标注前视_03_result/",
                              help='ziji: heduo 2nd batch annotation dir')
-    self.parser.add_argument('--img_dir', type=str,
+    self.parser.add_argument('--img_dir', type=str, default="/data1/yangfan/HOLODataset/20210104/",
                              help='ziji: heduo 2nd batch imgs dir')
-
+    self.parser.add_argument('--refine_model_dir', type=str,
+                             help='ziji: dir')
   def parse(self, args=''):
     if args == '':
       opt = self.parser.parse_args()

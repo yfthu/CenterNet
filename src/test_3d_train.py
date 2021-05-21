@@ -246,6 +246,7 @@ def prefetch_test(opt):
                     + (one_img_centers[one_object_pred_index, 1] - one_img_gt[one_object_gt_index, 1]) ** 2
                     if cur_dis_2 < min_distance:
                         min_index = one_object_gt_index
+                        min_distance = cur_dis_2
                 # cal loss
                 if min_index != None:
                     diff = nn.MSELoss(reduction='none')(pred[one_object_pred_index],one_img_gt[min_index])
@@ -329,6 +330,7 @@ def prefetch_test(opt):
                                 one_object_gt_index, 1]) ** 2
                             if cur_dis_2 < min_distance:
                                 min_index = one_object_gt_index
+                                min_distance = cur_dis_2
                         # cal loss
                         if min_index != None:
                             diff = nn.MSELoss(reduction='none')(pred[one_object_pred_index], one_img_gt[min_index])

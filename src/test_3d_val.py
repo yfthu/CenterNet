@@ -6,7 +6,7 @@ import _init_paths
 
 import os
 
-# os.environ['CUDA_VISIBLE_DEVICES'] = '4'  # todo
+os.environ['CUDA_VISIBLE_DEVICES'] = '5'  # todo
 
 import json
 import cv2
@@ -29,7 +29,7 @@ from datasets.dataset_factory import dataset_factory, get_dataset
 from detectors.detector_factory import detector_factory
 from twodtobev import undistort_contours, IPM_contours, cam_intrinsic, cam_extrinsic
 from refine_3d_network import Refine_3d_Network
-from models.model import save_model
+from models.model import save_model, load_model
 from visdom import Visdom
 from torch.optim.lr_scheduler import CosineAnnealingLR
 OBJECT_THRESHOLD = 0.3
@@ -153,7 +153,6 @@ def load_camera_parameter():
     return K, D, new_K, bTc, ex4
 
 def prefetch_test(opt):
-    viz = Visdom(env=opt.exp_id, port=8098)
     K, D, new_K, bTc, ex4 = load_camera_parameter()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
@@ -182,8 +181,9 @@ def prefetch_test(opt):
         dataset_val,
         batch_size=1, shuffle=False, num_workers=1, pin_memory=True)
 
-    refine_3d_model = Refine_3d_Network(72,6).cuda()
-
+    refine_3d_model = Refine_3d_Network(72,6)
+    load_model(refine_3d_model, opt.refine_model_dir)
+    refine_3d_model = refine_3d_model.cuda()
     #optimizer = torch.optim.Adam(chain(detector.model.parameters(), refine_3d_model.parameters()), lr=1e-4)
     optimizer = torch.optim.Adam(refine_3d_model.parameters(), lr=1e-4)
     scheduler_1 = CosineAnnealingLR(optimizer, T_max=40)
@@ -248,6 +248,7 @@ def prefetch_test(opt):
                         one_object_gt_index, 1]) ** 2
                     if cur_dis_2 < min_distance:
                         min_index = one_object_gt_index
+                        min_distance = cur_dis_2
                 # cal loss
                 if min_index != None:
                     diff = nn.MSELoss(reduction='none')(pred[one_object_pred_index], one_img_gt[min_index])
@@ -269,18 +270,8 @@ def prefetch_test(opt):
             bar.next()
         val_loss_total /= len(dataset_val)
         print("val_loss_total: ",val_loss_total)
-        viz.line(
-            X=[epoch],
-            Y=[val_loss_total],
-            win='val_loss_total',
-            opts=dict(title='loss', legend=['val_loss_total']),
-            update='append')
-        if val_loss_total < val_loss_min:
-            val_loss_min = val_loss_total
-        save_model(os.path.join(opt.save_dir, 'model_CenterNet_{}_{}.pth'.format(epoch, val_loss_total)),
-        epoch, detector.model, optimizer)
-        save_model(os.path.join(opt.save_dir, 'model_Refine3d_{}_{}.pth'.format(epoch, val_loss_total)),
-                   epoch, refine_3d_model, optimizer)
+
+
 
     bar.finish()
     # if opt.debug <= 1:
