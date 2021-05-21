@@ -286,7 +286,7 @@ def prefetch_test(opt):
                 val_loss_total = 0
                 val_loss_CenterNetBev = 0
                 val_objects_num = 0
-                for ind, (img_id, pre_processed_images) in enumerate(data_loader):
+                for ind, (img_id, pre_processed_images) in enumerate(data_loader_val):
                     ret, vehicle_feature_map, vehicle_wheel_points, vehicle_scores = detector.run(pre_processed_images,
                                                                                                   img_id=ind)
                     # vehicle_feature_map nx64 Tensor           vehicle_wheel_points nx8 ndarray        vehicle_scores nx1 ndarray
