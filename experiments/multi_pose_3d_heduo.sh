@@ -17,6 +17,12 @@ killed CUDA_VISIBLE_DEVICES=4 python test_3d_train.py multi_pose_3d --exp_id dla
 #test
 CUDA_VISIBLE_DEVICES=5 python test_3d_val.py multi_pose_3d --exp_id dla_3x_3d_0520_2320_schdlr1e-4_fixCenterNet_threshold0.3 --dataset coco_hp --keep_res --load_model ../exp/multi_pose_3d/dla_3x_3d_0520_2320_schdlr1e-4_fixCenterNet_threshold0.3/model_CenterNet_30_2457.8961465968814.pth --refine_model_dir /data1/yangfan/CenterNetExp/multi_pose_3d/dla_3x_3d_0520_2320_schdlr1e-4_fixCenterNet_threshold0.3/model_Refine3d_30_2457.8961465968814.pth --train_anno_dir /data1/yangfan/HOLODataset/20210104/result/1215_3D数据筛选前视_02_result/ --val_anno_dir /data1/yangfan/HOLODataset/20210104/result/1218_3D数据标注前视_03_result/ --img_dir /data1/yangfan/HOLODataset/20210104/ --split val --vis_thresh 0.3 --debug 2 --K 20
 
-# fix cur_dis_2 bug
+# 修复了min_distance=cur_dis_2的bug
 CUDA_VISIBLE_DEVICES=4 python test_3d_train.py multi_pose_3d --exp_id dla_3x_3d_0521_1131_schdlr1e-4_fixCenterNet_threshold0.3_Unicode_Repairschd --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth  --split val --vis_thresh 0.3 --debug 2 --K 20
 CUDA_VISIBLE_DEVICES=2 python test_3d_train.py multi_pose_3d --exp_id dla_3x_3d_0521_1135_schdlr1e-4_Unicode_Repairschd --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth --train_anno_dir /data1/yangfan/HOLODataset/20210104/result/1215_3D数据筛选前视_02_result/ --val_anno_dir /data1/yangfan/HOLODataset/20210104/result/1218_3D数据标注前视_03_result/ --img_dir /data1/yangfan/HOLODataset/20210104/ --split val --vis_thresh 0.3 --debug 2 --K 5
+
+CUDA_VISIBLE_DEVICES=5 python test_3d_val.py multi_pose_3d --exp_id dla_3x_3d_0521_1135_schdlr1e-4_Unicode_Repairschd --dataset coco_hp --keep_res --load_model ../exp/multi_pose_3d/dla_3x_3d_0521_1135_schdlr1e-4_Unicode_Repairschd/model_CenterNet_4_1.9195451242395998.pth  --refine_model_dir "/data1/yangfan/CenterNetExp/multi_pose_3d/dla_3x_3d_0521_1135_schdlr1e-4_Unicode_Repairschd/model_Refine3d_4_1.9195451242395998.pth" --split val --vis_thresh 0.3 --debug 2 --K 5
+CUDA_VISIBLE_DEVICES=5 python test_3d_val.py multi_pose_3d --exp_id dla_3x_3d_0521_1135_schdlr1e-4_Unicode_Repairschd --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth  --refine_model_dir "/data1/yangfan/CenterNetExp/multi_pose_3d/dla_3x_3d_0521_1135_schdlr1e-4_Unicode_Repairschd/model_Refine3d_4_1.9195451242395998.pth" --split val --vis_thresh 0.3 --debug 2 --K 5
+
+# Refine_3d_easy_network
+CUDA_VISIBLE_DEVICES=6 python test_3d_train.py multi_pose_3d --exp_id dla_3x_3d_0521_1757_schdlr1e-4_fixCenterNet_threshold0.3_RefineEasy_limit5 --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth  --split val --vis_thresh 0.3 --debug 2 --K 20

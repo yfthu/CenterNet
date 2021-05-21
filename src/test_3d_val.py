@@ -32,61 +32,7 @@ from refine_3d_network import Refine_3d_Network
 from models.model import save_model, load_model
 from visdom import Visdom
 from torch.optim.lr_scheduler import CosineAnnealingLR
-OBJECT_THRESHOLD = 0.3
-
-class PrefetchDataset(torch.utils.data.Dataset):
-    def __init__(self, opt, dataset, pre_process_func, gt=False):
-        self.images = dataset.images
-        self.load_image_func = dataset.coco.loadImgs
-        self.img_dir = dataset.img_dir
-        self.pre_process_func = pre_process_func
-        self.opt = opt
-        self.gt = gt
-        if self.gt:
-            self.num_joints = [4, 3, 2, 0, 2]
-            self.get_ann_ids_func = dataset.coco.getAnnIds
-            self.load_anns_func = dataset.coco.loadAnns
-
-    def _coco_box_to_bbox(self, box):
-        bbox = np.array([box[0], box[1], box[0] + box[2], box[1] + box[3]],
-                        dtype=np.float32)
-        return bbox
-
-    def __getitem__(self, index):
-        img_id = self.images[index]
-        img_info = self.load_image_func(ids=[img_id])[0]
-        img_path = os.path.join(self.img_dir, img_info['file_name'])
-        image = cv2.imread(img_path)
-        images, meta = {}, {}
-        if self.gt:
-            bbox_kps_gt = []
-            ann_id = self.get_ann_ids_func(imgIds=[img_id])
-            anns = self.load_anns_func(ids=ann_id)
-            for k in range(len(anns)):
-                ann = anns[k]
-                bbox = self._coco_box_to_bbox(ann['bbox'])
-                cls_id = int(ann['category_id']) - 1
-                all_pts = np.array(ann['keypoints'], np.float32).reshape(sum(self.num_joints), 3)[:, :2]
-                # cls_start_idx = [0, 4, 7, -1, 9]
-                # pts = np.array(ann['keypoints'], np.float32).reshape(num_kpts_cls, 2)
-                # has_kpts = True if np.sum(pts) else False # but have
-                # all_pts = np.zeros((sum(self.num_joints), 2), dtype=np.float32)
-                # if has_kpts:
-                #   all_pts[cls_start_idx[cls_id]:cls_start_idx[cls_id]+num_kpts_cls] = pts.copy()
-                dets = np.array(bbox.tolist() + [1] + all_pts.reshape(sum(self.num_joints) * 2).tolist()
-                                + [cls_id], dtype=np.float32)
-                bbox_kps_gt.append(dets)
-        for scale in opt.test_scales:
-            if opt.task == 'ddd':
-                images[scale], meta[scale] = self.pre_process_func(
-                    image, scale, img_info['calib'])
-            else:
-                images[scale], meta[scale] = self.pre_process_func(image, scale)
-        if self.gt: return img_id, {'images': images, 'image': image, 'meta': meta, 'bbox_kps_gt': bbox_kps_gt}
-        return img_id, {'images': images, 'image': image, 'meta': meta}
-
-    def __len__(self):
-        return len(self.images)
+OBJECT_THRESHOLD = 0.0
 
 class Heduo_2nd_batch_Dataset(torch.utils.data.Dataset):
     def __init__(self, opt, pre_process_func, anno_dir):
