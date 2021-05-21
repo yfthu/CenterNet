@@ -39,7 +39,7 @@ CUDA_VISIBLE_DEVICES=3 python test.py multi_pose --exp_id dla_3x --dataset coco_
 
 #fei
 CUDA_VISIBLE_DEVICES=0 python test.py multi_pose --exp_id fei_dla_3x --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth --split val --vis_thresh 0.3 --debug 2
-CUDA_VISIBLE_DEVICES=0 python main.py multi_pose --exp_id fei_dla_3x --dataset coco_hp --batch_size 2 --lr 4.3e-5 --gpus 0 --num_workers 8 --master_batch 2 --debug 5 --display_env  dla_3x --num_epochs 300 --lr_step 60,120,240 --K 40
+CUDA_VISIBLE_DEVICES=0 python main.py multi_pose --exp_id fei_dla_3x --dataset coco_hp --batch_size 2 --lr 4.3e-5 --gpus 0 --num_workers 8 --master_batch 2 --debug 5 --display_env  dla_3x --num_epochs 300 --lr_step 60,120,240 --K 40 --load_model ../exp/multi_pose/dla_3x/model_last.pth
 
 #0513:
 CUDA_VISIBLE_DEVICES=3 python test.py multi_pose --exp_id 0513_dla_3x_hm_score_factor --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth --split val --vis_thresh 0.3 --debug 2
@@ -56,3 +56,9 @@ CUDA_VISIBLE_DEVICES=2,3,4,5,6 python main.py multi_pose --exp_id hg_1x_heduo --
 CUDA_VISIBLE_DEVICES=2,3,4,5,6 python main.py multi_pose --exp_id hg_1x_heduo --dataset coco_hp --arch hourglass --batch_size 18 --master_batch 2 --lr 1.875e-4 --load_model ../models/multi_pose_hg_1x.pth --gpus 0,1,2,3,4 --num_epochs 50 --lr_step 40 --K 40 --input_h 480 --input_w 640 --debug 5 --display_env hg_1x_heduo --display_port 8098
 
 CUDA_VISIBLE_DEVICES=3 python test.py multi_pose --exp_id hg_1x_heduo --dataset coco_hp --keep_res --load_model ../exp/multi_pose/hg_1x_heduo/model_last.pth --split val --vis_thresh 0.3 --debug 2 --input_h 480 --input_w 640
+
+
+
+
+# main3d:
+python main_3d.py multi_pose --exp_id fei_dla_3x --dataset coco_hp --batch_size 2 --lr 4.3e-5 --gpus 0 --num_workers 8 --master_batch 2 --debug 5 --display_env  dla_3x --num_epochs 300 --lr_step 60,120,240 --K 40 --keep_res --split val --load_model ../exp/multi_pose/dla_3x/model_last.pth

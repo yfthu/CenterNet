@@ -12,7 +12,7 @@ class opts(object):
     self.parser = argparse.ArgumentParser()
     # basic experiment setting
     self.parser.add_argument('task', default='ctdet',
-                             help='ctdet | ddd | multi_pose | exdet')
+                             help='ctdet | ddd | multi_pose | exdet | multi_pose_3d')
     self.parser.add_argument('--dataset', default='coco',
                              help='coco | kitti | coco_hp | pascal')
     self.parser.add_argument('--exp_id', default='default')
@@ -246,6 +246,13 @@ class opts(object):
                              help='save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
     self.parser.add_argument('--display_winsize', type=int, default=1280,
                              help='display window size for both visdom and HTML')
+    # multi_pose_3d
+    self.parser.add_argument('--train_anno_dir', type=str,
+                             help='ziji: heduo 2nd batch annotation dir')
+    self.parser.add_argument('--val_anno_dir', type=str,
+                             help='ziji: heduo 2nd batch annotation dir')
+    self.parser.add_argument('--img_dir', type=str,
+                             help='ziji: heduo 2nd batch imgs dir')
 
   def parse(self, args=''):
     if args == '':
@@ -341,7 +348,7 @@ class opts(object):
                    'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes}
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
-    elif opt.task == 'multi_pose':
+    elif opt.task == 'multi_pose' or opt.task == 'multi_pose_3d':
       # assert opt.dataset in ['coco_hp']
       opt.num_classes = dataset.num_classes
       opt.default_resolution = dataset.default_resolution
@@ -375,6 +382,12 @@ class opts(object):
         'std': np.array([0.229, 0.224, 0.225], np.float32).reshape(1, 1, 3),
         'dataset': 'coco_hp', 'num_joints': [4,3,2,0,2],
         'flip_idx': [[[0,1], [2,3]], [[1,2]], [[0,1]], [], []]}, # count front/rear flipping?
+        'multi_pose_3d': {
+            'default_resolution': [704, 1280], 'num_classes': 5,
+            'mean': np.array([0.485, 0.456, 0.406], np.float32).reshape(1, 1, 3),
+            'std': np.array([0.229, 0.224, 0.225], np.float32).reshape(1, 1, 3),
+            'dataset': 'coco_hp', 'num_joints': [4, 3, 2, 0, 2],
+            'flip_idx': [[[0, 1], [2, 3]], [[1, 2]], [[0, 1]], [], []]},  # count front/rear flipping?，
       'ddd': {'default_resolution': [384, 1280], 'num_classes': 3, 
                 'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225],
                 'dataset': 'kitti'},

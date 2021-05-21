@@ -28,6 +28,7 @@ class BaseDetector(object):
     if not os.path.exists(opt.save_infer_dir):
       os.makedirs(opt.save_infer_dir)
     self.model = self.model.to(opt.device)
+    # if opt.task != "multi_pose_3d":
     self.model.eval()
 
     self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)

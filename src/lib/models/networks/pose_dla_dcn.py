@@ -467,7 +467,7 @@ class DLASeg(nn.Module):
                 fill_fc_weights(fc)
             self.__setattr__(head, fc)
 
-    def forward(self, x):
+    def forward(self, x, return_feature_map = False):
         x = self.base(x) #
         x = self.dla_up(x)
 
@@ -481,7 +481,10 @@ class DLASeg(nn.Module):
         for head in self.heads:
             z[head] = self.__getattr__(head)(y[-1])
 
-        return [z]
+        if return_feature_map:
+            return [z], y[-1]  # y[-1]: [1,64,256,488]
+        else:
+            return [z]
     
 
 def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4):

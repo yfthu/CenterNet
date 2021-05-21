@@ -1,0 +1,1 @@
+src/lib/utils/image.py里面19行transform_preds 变换坐标位置从256*488 到原图

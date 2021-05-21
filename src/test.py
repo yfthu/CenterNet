@@ -5,6 +5,8 @@ from __future__ import print_function
 import _init_paths
 
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '4' # todo
+
 import json
 import cv2
 import numpy as np
