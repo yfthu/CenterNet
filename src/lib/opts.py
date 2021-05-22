@@ -255,6 +255,10 @@ class opts(object):
                              help='ziji: heduo 2nd batch imgs dir')
     self.parser.add_argument('--refine_model_dir', type=str,
                              help='ziji: dir')
+    self.parser.add_argument('--refine_loss', type=str, default='mse',
+                             help='ziji: refine loss')
+    self.parser.add_argument('--match_max_center_dis', type=float, default=5.0,
+                             help='ziji: refine loss')
   def parse(self, args=''):
     if args == '':
       opt = self.parser.parse_args()
