@@ -259,6 +259,8 @@ class opts(object):
                              help='ziji: refine loss')
     self.parser.add_argument('--match_max_center_dis', type=float, default=5.0,
                              help='ziji: refine loss')
+    self.parser.add_argument('--object_threshold', type=float, default=0.3,
+                             help='ziji: object_threshold')
   def parse(self, args=''):
     if args == '':
       opt = self.parser.parse_args()

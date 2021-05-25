@@ -10,7 +10,6 @@ import torch
 from torch import nn
 from twodtobev import undistort_contours, IPM_contours, cam_intrinsic, cam_extrinsic, compute_box_bev
 
-OBJECT_THRESHOLD = 0.3
 IOU_THRESHOLD=0.3
 
 def trucate_angle(alpha):
@@ -30,7 +29,6 @@ class Heduo_2nd_batch_Dataset(torch.utils.data.Dataset):
         self.anno_dir = anno_dir
         self.img_dir = opt.img_dir
         self.all_annos_file = os.listdir(self.anno_dir)
-
     def __getitem__(self, index):
         anno_json = json.load(open(os.path.join(self.anno_dir,self.all_annos_file[index]), 'r'))[0]
         if u'\u6709\u70b9\u4e91\u6846' not in anno_json.keys():
@@ -171,7 +169,7 @@ def infer_one_img(detector, pre_processed_images, ind, K, D, new_K, bTc, ex4, re
     # vehicle_feature_map nx64 Tensor           vehicle_wheel_points nx8 ndarray        vehicle_scores nx1 ndarray
     if vehicle_scores.shape[0] == 0:
         return None
-    threshold_mask = (vehicle_scores.reshape(-1) >= OBJECT_THRESHOLD)
+    threshold_mask = (vehicle_scores.reshape(-1) >= detector.opt.object_threshold)
     threshold_indices = np.nonzero(threshold_mask)[0]
     vehicle_feature_map = vehicle_feature_map[threshold_indices, :]
     vehicle_wheel_points = vehicle_wheel_points[threshold_indices, :]
