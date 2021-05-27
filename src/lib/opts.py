@@ -261,6 +261,8 @@ class opts(object):
                              help='ziji: refine loss')
     self.parser.add_argument('--object_threshold', type=float, default=0.3,
                              help='ziji: object_threshold')
+    self.parser.add_argument('--img_nogt_dir', type=str, default=None,
+                             help='ziji: img no gt dir')
   def parse(self, args=''):
     if args == '':
       opt = self.parser.parse_args()

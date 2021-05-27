@@ -59,6 +59,29 @@ class Heduo_2nd_batch_Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.all_annos_file)
 
+class Heduo_2nd_batch_Dataset_nogt(torch.utils.data.Dataset):
+    def __init__(self, opt, pre_process_func):
+        self.pre_process_func = pre_process_func
+        self.opt = opt
+        self.img_dir = opt.img_dir
+        self.img_nogt_dir = opt.img_nogt_dir
+        self.all_imgs = os.listdir(self.img_nogt_dir)
+        self.all_imgs.sort()
+        self.all_imgs = self.all_imgs[::1]
+    def __getitem__(self, index):
+        img_path = os.path.join(self.img_nogt_dir, self.all_imgs[index])
+        image = cv2.imread(img_path)
+        images, meta = {}, {}
+
+        assert self.opt.test_scales == [1.0]
+        for scale in self.opt.test_scales:
+            images[scale], meta[scale] = self.pre_process_func(image, scale)
+        return index, {'images': images, 'image': image, 'meta': meta,
+                       'img_name':self.all_imgs[index]}
+
+
+    def __len__(self):
+        return len(self.all_imgs)
 def load_camera_parameter():
     f = open("M01_20200527/Camera/In/CAMERA_FRONT_CENTER.yaml")
     intrinsic_yaml = yaml.load(f, Loader=yaml.FullLoader)
@@ -240,6 +263,9 @@ def infer_one_img(detector, pre_processed_images, ind, K, D, new_K, bTc, ex4, re
     # one_img_ipm_featuremap = torch.cat((one_img_ipm, vehicle_feature_map), dim=1) # nx72
     # pred = refine_3d_model(one_img_ipm_featuremap) # nx8
     pred = refine_3d_model(one_img_objects)  # nx5
+    if detector.opt.img_nogt_dir != None:
+        return torch.zeros(1), 0, 0, pred, one_img_objects, torch.zeros(0), ret
+
     # x,y,l,w,rotation
     one_img_gt = pre_processed_images['gt_tensor'][0].cuda()
     one_img_loss = torch.zeros(1, requires_grad=True).cuda()

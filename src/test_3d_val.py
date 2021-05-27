@@ -33,16 +33,16 @@ from visdom import Visdom
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from util_3d import *
 
-def paint_bev(im_bev, points_bev, lineColor3d, width=1000, height=1000):
+def paint_bev(im_bev, points_bev, lineColor3d, width=1000, height=1000, thick=1):
     points = np.copy(points_bev)
     points[:, 0] = (25 - points[:, 0]) * (width / 50)
     points[:, 1] = (50 + points[:, 1]) * (height / 50)
 
     points = points.astype(np.int)
-    cv2.line(im_bev, (points[0][0], points[0][1]), (points[1][0], points[1][1]), lineColor3d, 1)
-    cv2.line(im_bev, (points[1][0], points[1][1]), (points[2][0], points[2][1]), lineColor3d, 1)
-    cv2.line(im_bev, (points[2][0], points[2][1]), (points[3][0], points[3][1]), lineColor3d, 1)
-    cv2.line(im_bev, (points[0][0], points[0][1]), (points[3][0], points[3][1]), lineColor3d, 1)
+    cv2.line(im_bev, (points[0][0], points[0][1]), (points[1][0], points[1][1]), lineColor3d, thick)
+    cv2.line(im_bev, (points[1][0], points[1][1]), (points[2][0], points[2][1]), lineColor3d, thick)
+    cv2.line(im_bev, (points[2][0], points[2][1]), (points[3][0], points[3][1]), lineColor3d, thick)
+    cv2.line(im_bev, (points[0][0], points[0][1]), (points[3][0], points[3][1]), lineColor3d, thick)
 
 
 def paint_bev_all(np_centernet_bev,np_refine_pred,np_gt):
@@ -67,6 +67,20 @@ def paint_bev_all(np_centernet_bev,np_refine_pred,np_gt):
         paint_bev(im_bev, gt_pts, (0, 255, 0))
 
     return im_bev
+def paint_bev_nogt(np_refine_pred, image):
+    # 输入都是nx5
+
+    im_bev = np.ones([510, 510], dtype=np.uint8)
+    im_bev = cv2.cvtColor(im_bev, cv2.COLOR_GRAY2RGB)
+    im_bev *= 255
+    # BGR
+    for pred_object in np_refine_pred:
+        pred_pts = compute_box_bev(pred_object)
+        paint_bev(im_bev, pred_pts, (0, 140, 255), width=510, height=510, thick=3)
+
+    image_resize = cv2.resize(image,(960,510))
+    image_cat = np.concatenate((image_resize, im_bev), axis=1)
+    return image_cat
 
 def prefetch_test(opt):
     K, D, new_K, bTc, ex4 = load_camera_parameter()
@@ -83,15 +97,13 @@ def prefetch_test(opt):
     # opt = opts().update_dataset_info_and_set_heads(opt, Dataset)
     # Dataset = get_dataset(opt.dataset, opt.task)
     # opt = opts().update_dataset_info_and_set_heads(opt, Dataset)
-    dataset = Heduo_2nd_batch_Dataset(opt, detector.pre_process, opt.train_anno_dir)
-    dataset_val = Heduo_2nd_batch_Dataset(opt, detector.pre_process, opt.val_anno_dir)
 
-    # data_loader = torch.utils.data.DataLoader(
-    #     PrefetchDataset(opt, dataset, detector.pre_process, gt=(opt.debug == 2)),
-    #     batch_size=1, shuffle=False, num_workers=1, pin_memory=True)
-    data_loader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=1, shuffle=True, num_workers=1, pin_memory=True)
+    if opt.img_nogt_dir != None:
+        dataset_val = Heduo_2nd_batch_Dataset_nogt(opt, detector.pre_process)
+    else:
+        dataset_val = Heduo_2nd_batch_Dataset(opt, detector.pre_process, opt.val_anno_dir)
+
+
 
     data_loader_val = torch.utils.data.DataLoader(
         dataset_val,
@@ -102,7 +114,7 @@ def prefetch_test(opt):
     refine_3d_model = refine_3d_model.cuda()
 
     results = {}
-    num_iters = len(dataset)
+    num_iters = len(dataset_val)
     bar = Bar('{}'.format(opt.exp_id), max=num_iters)
     time_stats = ['tot', 'load', 'pre', 'net', 'dec', 'post', 'merge']
     avg_time_stats = {t: AverageMeter() for t in time_stats}
@@ -130,17 +142,20 @@ def prefetch_test(opt):
             np_centernet_bev = one_img_objects.cpu().numpy()
             np_refine_pred = pred.cpu().numpy()
             np_gt = one_img_gt.cpu().numpy()
-            atp, afp, atp2, afp2, afn1, afn2,agtp1,agtp2 = cal_pr_one_img(np_centernet_bev.copy(),np_refine_pred.copy(),np_gt.copy())
-            tp += atp
-            fp += afp
-            tp2 += atp2
-            fp2 +=afp2
-            fn1+=afn1
-            fn2+=afn2
-            gtp1+=agtp1
-            gtp2+=agtp2
+            if opt.img_nogt_dir == None:
+                atp, afp, atp2, afp2, afn1, afn2,agtp1,agtp2 = cal_pr_one_img(np_centernet_bev.copy(),np_refine_pred.copy(),np_gt.copy())
+                tp += atp
+                fp += afp
+                tp2 += atp2
+                fp2 +=afp2
+                fn1+=afn1
+                fn2+=afn2
+                gtp1+=agtp1
+                gtp2+=agtp2
 
-            im_bev = paint_bev_all(np_centernet_bev.copy(),np_refine_pred.copy(),np_gt.copy())
+                im_bev = paint_bev_all(np_centernet_bev.copy(),np_refine_pred.copy(),np_gt.copy())
+            else:
+                im_bev = paint_bev_nogt(np_refine_pred.copy(), pre_processed_images['image'][0].numpy().copy())
             cv2.imwrite(os.path.join(opt.save_infer_dir,pre_processed_images['img_name'][0]),
                         im_bev)  # todo ziji ttt
 

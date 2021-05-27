@@ -172,7 +172,7 @@ class MultiPose3dDetector(MultiPoseDetector):
             pre_processed_images = image_or_path_or_tensor
             pre_processed = True
             # gt = image_or_path_or_tensor['bbox_kps_gt'] if self.opt.debug == 2 else None
-            gt = image_or_path_or_tensor['gt_tensor']
+            # gt = image_or_path_or_tensor['gt_tensor']
             img_name = image_or_path_or_tensor['img_name']
 
         loaded_time = time.time()
