@@ -5,7 +5,7 @@ from __future__ import print_function
 import numpy as np
 from .image import transform_preds
 from .ddd_utils import ddd2locrot
-
+from .projections import LoadCameraParamsRaw
 
 def get_pred_depth(depth):
   return depth
@@ -76,7 +76,10 @@ def ddd_post_process(dets, c, s, calibs, opt):
   # dets: batch x max_dets x dim
   # return 1-based class det list
   dets = ddd_post_process_2d(dets, c, s, opt)
-  dets = ddd_post_process_3d(dets, calibs)
+  if calibs is not None:
+    dets = ddd_post_process_3d(dets, calibs)
+  else:
+    pass
   return dets
 
 

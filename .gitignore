@@ -1,4 +1,4 @@
-dump/
+dump/*
 legacy/*
 .DS_Store
 debug/*

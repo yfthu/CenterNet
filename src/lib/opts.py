@@ -247,6 +247,13 @@ class opts(object):
     self.parser.add_argument('--display_winsize', type=int, default=1280,
                              help='display window size for both visdom and HTML')
 
+    # heduo-2 args
+    self.parser.add_argument('--holo_split', type=str, default='523',
+                             help='different validation split for heduo: '
+                                  '523 | 325 | 217')
+    self.parser.add_argument('--holo_vehicleonly', action='store_true',
+                             help='keep first four classes: Car, Truck, Engineering_truck, Bus')
+
   def parse(self, args=''):
     if args == '':
       opt = self.parser.parse_args()
@@ -327,14 +334,14 @@ class opts(object):
                    'hm_c': opt.num_classes}
       if opt.reg_offset:
         opt.heads.update({'reg_t': 2, 'reg_l': 2, 'reg_b': 2, 'reg_r': 2})
-    elif opt.task == 'ddd':
+    elif opt.task == 'ddd' or opt.task == 'holo3d':
       # assert opt.dataset in ['gta', 'kitti', 'viper']
       opt.heads = {'hm': opt.num_classes, 'dep': 1, 'rot': 8, 'dim': 3}
       if opt.reg_bbox:
         opt.heads.update(
-          {'wh': 2})
+          {'wh': 2})    # true
       if opt.reg_offset:
-        opt.heads.update({'reg': 2})
+        opt.heads.update({'reg': 2})    # true
     elif opt.task == 'ctdet':
       # assert opt.dataset in ['pascal', 'coco']
       opt.heads = {'hm': opt.num_classes,
@@ -363,22 +370,25 @@ class opts(object):
 
   def init(self, args=''):
     default_dataset_info = {
-      'ctdet': {'default_resolution': [512, 512], 'num_classes': 5,
+        'ctdet': {'default_resolution': [512, 512], 'num_classes': 5,
                 'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
                 'dataset': 'coco'},
-      'exdet': {'default_resolution': [512, 512], 'num_classes': 80, 
+        'exdet': {'default_resolution': [512, 512], 'num_classes': 80,
                 'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
                 'dataset': 'coco'},
-      'multi_pose': {
-        'default_resolution': [704, 1280], 'num_classes': 5,
-        'mean': np.array([0.485, 0.456, 0.406], np.float32).reshape(1, 1, 3),
-        'std': np.array([0.229, 0.224, 0.225], np.float32).reshape(1, 1, 3),
-        'dataset': 'coco_hp', 'num_joints': [4,3,2,0,2],
-        # 'flip_idx': [[[0,1], [2,3]], [[1,2]], [[0,1]], [], [[0,1]]]}, # count front/rear flipping # shouldnt!
-        'flip_idx': [[[0,1], [2,3]], [[1,2]], [[0,1]], [], []]},
-      'ddd': {'default_resolution': [384, 1280], 'num_classes': 3,
+        'multi_pose': {
+                'default_resolution': [704, 1280], 'num_classes': 5,
+                'mean': np.array([0.485, 0.456, 0.406], np.float32).reshape(1, 1, 3),
+                'std': np.array([0.229, 0.224, 0.225], np.float32).reshape(1, 1, 3),
+                'dataset': 'coco_hp', 'num_joints': [4,3,2,0,2],
+                # 'flip_idx': [[[0,1], [2,3]], [[1,2]], [[0,1]], [], [[0,1]]]}, # count front/rear flipping # shouldnt!
+                'flip_idx': [[[0,1], [2,3]], [[1,2]], [[0,1]], [], []]},
+        'ddd': {'default_resolution': [384, 1280], 'num_classes': 3,
                 'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225],
                 'dataset': 'kitti'},
+        'holo3d': {'default_resolution': [704, 1280], 'num_classes': 7, # todo
+                'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225],
+                'dataset': 'holo'},
     }
     class Struct:
       def __init__(self, entries):

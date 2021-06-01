@@ -36,6 +36,10 @@ class KITTI(data.Dataset):
     self.class_name = [
       '__background__', 'Pedestrian', 'Car', 'Cyclist']
     self.cat_ids = {1:0, 2:1, 3:2, 4:-3, 5:-3, 6:-2, 7:-99, 8:-99, 9:-1}
+    # -99 ignore, 'Tram', 'Misc'
+    # -1 consider it as every class, 'DontCare'
+    # 6 personsitting, grouped into 1 pedestrian
+    # 4 van & 5 truck, grouped into 2 car
     
     self._data_rng = np.random.RandomState(123)
     self._eig_val = np.array([0.2141788, 0.01817699, 0.00341571],
