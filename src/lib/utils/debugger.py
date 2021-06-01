@@ -76,9 +76,15 @@ class Debugger(object):
       self.focal_length = 721.5377
       self.W = 1242
       self.H = 375
-    num_classes = len(self.names)
-    self.down_ratio=down_ratio
-    # for bird view
+    elif dataset == 'holo':
+      self.names = holo_class_name[:1] if num_classes == 1 else  holo_class_name
+      self.focal_length = None
+      self.W = 1920
+      self.H = 1020
+
+    # num_classes = len(self.names)
+    self.down_ratio = down_ratio
+    # for bird view todo 3d
     self.world_size = 64
     self.out_size = 384
 
@@ -294,9 +300,8 @@ class Debugger(object):
     pt = pt * self.out_size / self.world_size
     return pt.astype(np.int32)
 
-  def add_ct_detection(
-    self, img, dets, show_box=False, show_txt=True, 
-    center_thresh=0.5, img_id='det'):
+  def add_ct_detection(self, img, dets, show_box=False, show_txt=True,
+                       center_thresh=0.5, img_id='det'):
     # dets: max_preds x 5
     self.imgs[img_id] = img.copy()
     if type(dets) == type({}):
@@ -330,9 +335,8 @@ class Debugger(object):
             self.add_coco_bbox(bbox, dets[i, -1], dets[i, 2], img_id=img_id)
 
 
-  def add_3d_detection(
-    self, image_or_path, dets, calib, show_txt=False, 
-    center_thresh=0.5, img_id='det'):
+  def add_3d_detection(self, image_or_path, dets, calib, show_txt=False,
+                       center_thresh=0.5, img_id='det'): # todo 3d
     if isinstance(image_or_path, np.ndarray):
       self.imgs[img_id] = image_or_path
     else: 
@@ -351,9 +355,8 @@ class Debugger(object):
             box_2d = project_to_image(box_3d, calib)
             self.imgs[img_id] = draw_box_3d(self.imgs[img_id], box_2d, cl)
 
-  def compose_vis_add(
-    self, img_path, dets, calib,
-    center_thresh, pred, bev, img_id='out'):
+  def compose_vis_add(self, img_path, dets, calib,
+                      center_thresh, pred, bev, img_id='out'):
     self.imgs[img_id] = cv2.imread(img_path)
     # h, w = self.imgs[img_id].shape[:2]
     # pred = cv2.resize(pred, (h, w))
@@ -379,9 +382,8 @@ class Debugger(object):
     self.imgs[img_id] = np.concatenate(
       [self.imgs[img_id], self.imgs[bev]], axis=1)
 
-  def add_2d_detection(
-    self, img, dets, show_box=False, show_txt=True, 
-    center_thresh=0.5, img_id='det'):
+  def add_2d_detection(self, img, dets, show_box=False, show_txt=True,
+                       center_thresh=0.5, img_id='det'):
     self.imgs[img_id] = img
     for cat in dets:
       for i in range(len(dets[cat])):
@@ -451,7 +453,11 @@ class Debugger(object):
 
 
 kitti_class_name = [
-  'p', 'v', 'b'
+    'p', 'v', 'b'
+]
+
+holo_class_name = [
+    'vehicle', 'tricycle', 'ridbiker', 'motorbicycle', 'pedestrian', 'cone'
 ]
 
 gta_class_name = [

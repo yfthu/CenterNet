@@ -386,7 +386,7 @@ class opts(object):
         'ddd': {'default_resolution': [384, 1280], 'num_classes': 3,
                 'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225],
                 'dataset': 'kitti'},
-        'holo3d': {'default_resolution': [704, 1280], 'num_classes': 7, # todo
+        'holo3d': {'default_resolution': [704, 1280], 'num_classes': 6, # todo
                 'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225],
                 'dataset': 'holo'},
     }

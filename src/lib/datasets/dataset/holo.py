@@ -16,7 +16,7 @@ import torch.utils.data as data
 KEEP_VEHICLES_ONLY = False
 
 class HOLO(data.Dataset):
-    num_classes = 2 if KEEP_VEHICLES_ONLY else 7 # car, tricycle, Rider/Biker, Motorcycle/Bicycle, pedestrian, cone
+    num_classes = 1 if KEEP_VEHICLES_ONLY else 6 # car, tricycle, Rider/Biker, Motorcycle/Bicycle, pedestrian, cone
     default_resolution = [704, 1280]
     mean = np.array([0.485, 0.456, 0.406], np.float32).reshape(1, 1, 3)
     std = np.array([0.229, 0.224, 0.225], np.float32).reshape(1, 1, 3)

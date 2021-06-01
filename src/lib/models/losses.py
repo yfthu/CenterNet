@@ -186,7 +186,7 @@ class L1Loss(nn.Module):
   def forward(self, output, mask, ind, target):
     pred = _transpose_and_gather_feat(output, ind)
     mask = mask.unsqueeze(2).expand_as(pred).float()
-    loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
+    loss = F.l1_loss(pred * mask, target * mask, reduction='mean')
     return loss
 
 class BinRotLoss(nn.Module):
@@ -199,13 +199,13 @@ class BinRotLoss(nn.Module):
     return loss
 
 def compute_res_loss(output, target):
-    return F.smooth_l1_loss(output, target, reduction='elementwise_mean')
+    return F.smooth_l1_loss(output, target, reduction='mean')
 
 # TODO: weight
 def compute_bin_loss(output, target, mask):
     mask = mask.expand_as(output)
     output = output * mask.float()
-    return F.cross_entropy(output, target, reduction='elementwise_mean')
+    return F.cross_entropy(output, target, reduction='mean')
 
 def compute_rot_loss(output, target_bin, target_res, mask):
     # output: (B, 128, 8) [bin1_cls[0], bin1_cls[1], bin1_sin, bin1_cos, 

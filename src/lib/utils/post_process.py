@@ -79,7 +79,7 @@ def ddd_post_process(dets, c, s, calibs, opt):
   if calibs is not None:
     dets = ddd_post_process_3d(dets, calibs)
   else:
-    pass
+    pass # for heduo
   return dets
 
 
