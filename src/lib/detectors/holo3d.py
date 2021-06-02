@@ -47,7 +47,6 @@ class HoloDetector(BaseDetector):
         images = inp_image.transpose(2, 0, 1)[np.newaxis, ...]
         # calib = np.array(calib, dtype=np.float32) if calib is not None \
         #     else self.calib
-        calib = None
         images = torch.from_numpy(images)
         meta = {'c': c, 's': s,
                 'out_height': inp_height // self.opt.down_ratio,

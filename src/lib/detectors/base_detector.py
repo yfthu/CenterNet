@@ -99,7 +99,7 @@ class BaseDetector(object):
       image = image_or_path_or_tensor['image'][0].numpy()
       pre_processed_images = image_or_path_or_tensor
       pre_processed = True
-      gt = image_or_path_or_tensor['bbox_kps_gt'] if self.opt.debug == 2 else None
+      gt = image_or_path_or_tensor['gt'] if self.opt.debug == 2 else None
     
     loaded_time = time.time()
     load_time += (loaded_time - start_time)

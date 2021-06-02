@@ -40,7 +40,9 @@ class HOLO(data.Dataset):
                         }
         if opt.holo_vehicleonly:
             self.class_name = self.class_name[:5]
-            self.cat_ids = {i:j for i,j in self.cat_ids.items() if j==0}
+            for i,j in self.cat_ids.items():
+                if j != 0:
+                    self.cat_ids[i] = -99
 
         print("category ids:", self.cat_ids)
 

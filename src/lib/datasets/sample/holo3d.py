@@ -113,7 +113,7 @@ class HoloDataset(data.Dataset):
                 draw_gaussian(hm[cls_id], ct, radius) # for cls_id >=0, hm[ct]=1.0
 
                 wh[k] = 1. * w, 1. * h
-                gt_det.append([ct[0], ct[1], 1] + \
+                gt_det.append([ct[0], ct[1], 1.0] + \
                               self._alpha_to_8(self._convert_alpha(ann['alpha'])) + \
                               [ann['depth']] + (np.array(ann['dim']) / 1).tolist() + [cls_id])
                 if self.opt.reg_bbox:
@@ -144,10 +144,10 @@ class HoloDataset(data.Dataset):
             ret.update({'wh': wh})
         if self.opt.reg_offset:
             ret.update({'reg': reg})
-        if self.opt.debug > 0 or not ('train' in self.split):
+        if not ('train' in self.split):
             gt_det = np.array(gt_det, dtype=np.float32) if len(gt_det) > 0 else \
                 np.zeros((1, 18), dtype=np.float32) # 18=ctx, cty, score, alpha*8, depth, dim*3, cls
-            meta = {'c': c, 's': s, 'gt_det': gt_det, # 'calib': calib,
+            meta = {'c': c, 's': s, 'gt_det': gt_det, 'calib': None,
                     'image_path': img_path, 'img_id': img_id}
             ret['meta'] = meta
 

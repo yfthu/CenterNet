@@ -87,7 +87,8 @@ def Project3DToCamera(camera, vector):
         [position['x'], position['y'], position['z']], np.float32).reshape(3, 1)
 
     point_in_cam = vector - cam_position
-    point_in_cam = np.linalg.inv(cam_heading).dot(point_in_cam)
+    P = np.linalg.inv(cam_heading)
+    point_in_cam = P.dot(point_in_cam)
 
     if point_in_cam[2] <= 0:
         return None
