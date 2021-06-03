@@ -5,7 +5,6 @@ from __future__ import print_function
 import _init_paths
 
 
-
 # os.environ['CUDA_VISIBLE_DEVICES'] = '5'  # todo
 import os
 import json
@@ -33,7 +32,7 @@ from visdom import Visdom
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from util_3d import *
 
-def paint_bev(im_bev, points_bev, lineColor3d, width=1000, height=1000, thick=1):
+def paint_bev(im_bev, points_bev, lineColor3d, width=1000, height=1000, thick=4):
     points = np.copy(points_bev)
     points[:, 0] = (25 - points[:, 0]) * (width / 50)
     points[:, 1] = (50 + points[:, 1]) * (height / 50)

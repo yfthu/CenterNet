@@ -10,7 +10,15 @@ from torch.autograd import Function
 from torch.nn.modules.utils import _pair
 from torch.autograd.function import once_differentiable
 
-import _ext as _backend
+try:
+    from . import _ext as _backend
+except ImportError as ex:
+    print(ex)
+    import sys; print("[debug] sys.path =\n    ", "\n    ".join(sys.path))
+    import os; print("[debug] os.env.lib-path", os.environ.get("LD_LIBRARY_PATH"));
+    input("Press Enter key to exit...")
+    import sys; sys.exit(-1)
+    # from IPython import embed ; embed()
 
 
 class _DCNv2(Function):

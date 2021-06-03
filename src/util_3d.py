@@ -67,7 +67,7 @@ class Heduo_2nd_batch_Dataset_nogt(torch.utils.data.Dataset):
         self.img_nogt_dir = opt.img_nogt_dir
         self.all_imgs = os.listdir(self.img_nogt_dir)
         self.all_imgs.sort()
-        self.all_imgs = self.all_imgs[::1]
+        self.all_imgs = self.all_imgs[453::6]
     def __getitem__(self, index):
         img_path = os.path.join(self.img_nogt_dir, self.all_imgs[index])
         image = cv2.imread(img_path)
