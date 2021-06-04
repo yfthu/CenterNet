@@ -147,7 +147,7 @@ class HoloDataset(data.Dataset):
         if not ('train' in self.split):
             gt_det = np.array(gt_det, dtype=np.float32) if len(gt_det) > 0 else \
                 np.zeros((1, 18), dtype=np.float32) # 18=ctx, cty, score, alpha*8, depth, dim*3, cls
-            meta = {'c': c, 's': s, 'gt_det': gt_det, 'calib': None,
+            meta = {'c': c, 's': s, 'gt_det': gt_det, #'calib': None,
                     'image_path': img_path, 'img_id': img_id}
             ret['meta'] = meta
 

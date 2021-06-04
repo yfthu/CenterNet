@@ -24,6 +24,7 @@ LABEL_PATH = './data/heduo-2/labels/'
 ANNO_PATH = './data/heduo-2/annotations/'
 SPLIT_PATH = './data/heduo-2/splits/'
 DEBUG = False
+RTM3D = True
 # prioritize 3d projection result, if nan exists, ignore.
 # if negative points are projected, keep.
 # this is to cooperate with the projection during later training
@@ -124,6 +125,25 @@ def add_coco_hp(pointss, bboxes, img, img_path, draw_3dbox):
     print("Saving", img_path.split("/")[-1])
 
 
+def unproject_2d_to_3d(pt_2d, depth, P):
+    # pts_2d: 2
+    # depth: 1
+    # P: 3 x 4
+    # return: 3
+    z = depth - P[2, 3]
+    x = (pt_2d[0] * depth - P[0, 3] - P[0, 2] * z) / P[0, 0]
+    y = (pt_2d[1] * depth - P[1, 3] - P[1, 2] * z) / P[1, 1]
+    pt_3d = np.array([x, y, z], dtype=np.float32)
+    return pt_3d
+
+def ddd2locrot(center, alpha, dim, depth, calib=None):
+    # single image
+    locations = unproject_2d_to_3d(center, depth, calib)
+    locations[1] += dim[0] / 2
+    rotation_y = alpha2rot_y(alpha, center[0], calib[0, 2], calib[0, 0])
+    return locations, rotation_y
+
+
 def convert_holo_to_coco(view='', divide='523'):
     # view_convert = {"前视": "center", "左视": "left", "右视": "right"}
     # image_paths = []
@@ -196,6 +216,7 @@ def convert_holo_to_coco(view='', divide='523'):
                     cat_id = cat_ids[cat_ini]
                     dim = [float(object["width"]), float(object["height"]), float(object["depth"])]
                     l, w, h = dim # should be w, h, l
+                    dim_kitti = [h, w, l]
                     location = [float(object["center"]["x"]), float(object["center"]["y"]), float(object["center"]["z"])]
                     # off_set=(calib[0,3]-calib0[0,3])/calib[0,0]
                     # location[0] += off_set###################################################confuse
@@ -204,8 +225,7 @@ def convert_holo_to_coco(view='', divide='523'):
                     if object["rotation"]["x"] != 0 or object["rotation"]["y"] != 0:
                         raise NotImplementedError
 
-
-                    box_3d = Gen3DBox(*location, w, h, l, alpha) # (9,2)
+                    box_3d = Gen3DBox(*location, w, h, l, alpha) # (9,2) 8+1
                     box_3dto2d_pj, num_keypoints = project(box_3d, camera) # (9, 3)
 
                     # check points status
@@ -291,25 +311,42 @@ def convert_holo_to_coco(view='', divide='523'):
                         pointss.append(box_3dto2d_gt)
                         bboxes.append(_bbox_to_coco_bbox(box_2d_gt))
 
+
+                    bbox = _bbox_to_coco_bbox(box_2d)
+                    nine2dpoints = np.reshape(box_3dto2d_pj, (1,27)).tolist()[0]
+                    # center = np.array(
+                    #     [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2], dtype=np.float32)
+                    #
+                    # locations, rotation_y = ddd2locrot(
+                    #     center, alpha, dim_kitti, location[2])
+
+
                     truncated = 0 # non-truncated
                     occluded = 0 # fully visible
                     ann = {'image_id': image_id, # done
                            'id': int(len(ret['annotations']) + 1), # object["id"], # done, not int, str!
                            'category_id': cat_id, # done
-                           'dim': dim,  # dim
-                           'bbox': _bbox_to_coco_bbox(box_2d), # done
+                           'dim': dim_kitti,  # dim
+                           'bbox': bbox, # done
                            'depth': location[2],
                            'alpha': alpha,
                            'truncated': truncated,
                            'occluded': occluded,
                            'location':location,
-                           'rotation_y': rotation_y  # done
+                           'rotation_y': rotation_y,  # done
+                           'calib': None
                            }
+                    if RTM3D:
+                        ann['segmentation'] = [[0,0,0,0,0,0]]
+                        ann['num_keypoints'] = num_keypoints
+                        ann['area'] = 1
+                        ann['iscrowd'] = 0
+                        ann['keypoints'] = nine2dpoints
                     ret['annotations'].append(ann)
                 if DEBUG and img_save:
                     add_coco_hp(pointss, bboxes, image, img_path, draw_3dbox=True)
 
-        out_path = '{}/heduo-2-{}-{}.json'.format(ANNO_PATH, divide, split)
+        out_path = '{}/heduo-2{}-{}-{}.json'.format(ANNO_PATH, '-RTM' if RTM3D else '', divide, split)
         json.dump(ret, open(out_path, 'w'))
         print("Num of images for split {}: {}".format(split, len(ret['images'])))
         print("Num of objects for split {}: {}".format(split, len(ret['annotations'])))

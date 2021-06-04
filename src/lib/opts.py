@@ -228,7 +228,7 @@ class opts(object):
                                   '1: only save the final detection results'
                                   '2: save the final detection result & ground truth'
                                   '3: save the network output features'
-                                  '4: use matplot to display' # useful when lunching training with ipython notebook
+                                  '4: use matplot to display' # useful when launching training with ipython notebook
                                   '5: save all visualizations to disk')
     # self.parser.add_argument('--display_freq', type=int, default=10,
     #                          help='frequency of showing training results on screen')
