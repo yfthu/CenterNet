@@ -208,7 +208,7 @@ class PoseResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, return_feature_map = False):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -223,7 +223,11 @@ class PoseResNet(nn.Module):
         ret = {}
         for head in self.heads:
             ret[head] = self.__getattr__(head)(x)
-        return [ret]
+
+        if return_feature_map:
+            return [ret], x # x:[1,256,256,488]
+        else:
+            return [ret]
 
     def init_weights(self, num_layers, pretrained=True):
         if pretrained:
