@@ -31,6 +31,7 @@ class PrefetchDataset(torch.utils.data.Dataset):
     self.gt = gt
     if self.gt:
       self.num_joints = [4,3,2,0,2]
+      if opt.add_kps: self.num_joints = [4,3,2,3,2]
       self.get_ann_ids_func = dataset.coco.getAnnIds
       self.load_anns_func = dataset.coco.loadAnns
 

@@ -409,6 +409,8 @@ class opts(object):
     if opt.add_kps:
         default_dataset_info['multi_pose']['num_joints'] = [4,3,2,3,2]
         default_dataset_info['multi_pose']['flip_idx'] = [[[0,1], [2,3]], [[1,2]], [[0,1]], [[1,2]], []]
+        default_dataset_info['multi_pose']['num_joints'] = [4,3,2,3,2]
+        default_dataset_info['multi_pose_3d']['num_joints'] = [4, 3, 2, 3, 2]
     dataset = Struct(default_dataset_info[opt.task])
     opt.dataset = dataset.dataset
     opt = self.update_dataset_info_and_set_heads(opt, dataset)

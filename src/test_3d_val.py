@@ -5,7 +5,7 @@ from __future__ import print_function
 import _init_paths
 
 import os
-# os.environ['CUDA_VISIBLE_DEVICES'] = '5'  # todo
+os.environ['CUDA_VISIBLE_DEVICES'] = '7'  # todo
 import json
 import cv2
 import yaml
