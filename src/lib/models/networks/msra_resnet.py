@@ -25,6 +25,10 @@ model_urls = {
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
 
+ac_model_paths = {
+    'resnet18': '../exp/pretrained/msra_resnet18_base_best.pth.tar'
+}
+
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -284,9 +288,16 @@ class PoseResNet(nn.Module):
                           nn.init.constant_(m.bias, 0)
             #pretrained_state_dict = torch.load(pretrained)
         if pretrained:
-            url = model_urls['resnet{}'.format(num_layers)]
-            pretrained_state_dict = model_zoo.load_url(url)
-            print('=> loading pretrained model {}'.format(url))
+            model_path = ac_model_paths.get('resnet{}'.format(num_layers), None)
+            if model_path is not None:
+                ckpt = torch.load(model_path)
+                ckpt = ckpt.get('state_dict', None)
+                pretrained_state_dict = {k.replace('module.', ''): v for k, v in ckpt.items()}
+            else:
+                raise NotImplementedError
+                model_path = model_urls['resnet{}'.format(num_layers)]
+                pretrained_state_dict = model_zoo.load_url(model_path)
+            print('=> loading pretrained model {}'.format(model_path))
             self.load_state_dict(pretrained_state_dict, strict=False)
         else:
             print('=> imagenet pretrained model dose not exist')
@@ -305,5 +316,5 @@ def get_pose_net(num_layers, heads, head_conv):
   block_class, layers = resnet_spec[num_layers]
 
   model = PoseResNet(block_class, layers, heads, head_conv=head_conv)
-  model.init_weights(num_layers, pretrained=False)
+  model.init_weights(num_layers, pretrained=True)
   return model

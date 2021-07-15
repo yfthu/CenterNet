@@ -60,5 +60,5 @@ CUDA_VISIBLE_DEVICES=3 python test.py multi_pose --exp_id hg_1x_heduo --dataset 
 
 
 
-# main3d:
-python main_3d.py multi_pose --exp_id fei_dla_3x --dataset coco_hp --batch_size 2 --lr 4.3e-5 --gpus 0 --num_workers 8 --master_batch 2 --debug 5 --display_env  dla_3x --num_epochs 300 --lr_step 60,120,240 --K 40 --keep_res --split val --load_model ../exp/multi_pose/dla_3x/model_last.pth
+# main3d: fei
+#fei python main_3d.py multi_pose --exp_id fei_dla_3x --dataset coco_hp --batch_size 2 --lr 4.3e-5 --gpus 0 --num_workers 8 --master_batch 2 --debug 5 --display_env  dla_3x --num_epochs 300 --lr_step 60,120,240 --K 40 --keep_res --split val --load_model ../exp/multi_pose/dla_3x/model_last.pth
