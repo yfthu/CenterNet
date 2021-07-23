@@ -25,11 +25,19 @@ model_urls = {
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
 
+ac_model_paths = {
+    'resnet18': '../exp/pretrained/msra_resnet18_base_best.pth.tar'
+}
+
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
 
+def conv1x1(in_planes, out_planes, stride=1):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride,
+                     bias=False)
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -44,15 +52,30 @@ class BasicBlock(nn.Module):
         self.downsample = downsample
         self.stride = stride
 
+        self.conv1_2 = conv1x1(inplanes, planes, stride)
+        self.bn1_2 = nn.BatchNorm2d(planes, momentum=BN_MOMENTUM)
+        self.conv2_2 = conv1x1(planes, planes)
+        self.bn2_2 = nn.BatchNorm2d(planes, momentum=BN_MOMENTUM)
+
     def forward(self, x):
         residual = x
 
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
+        out1_33 = self.conv1(x)
+        out1_33 = self.bn1(out1_33)
 
-        out = self.conv2(out)
-        out = self.bn2(out)
+        out1_11 = self.conv1_2(x)
+        out1_11 = self.bn1_2(out1_11)
+
+        out = self.relu(out1_33 + out1_11)
+
+        y = out
+        out2_33 = self.conv2(y)
+        out2_33 = self.bn2(out2_33)
+
+        out2_11 = self.conv2_2(y)
+        out2_11 = self.bn2_2(out2_11)
+
+        out = out2_33 + out2_11
 
         if self.downsample is not None:
             residual = self.downsample(x)
@@ -137,7 +160,7 @@ class PoseResNet(nn.Module):
                 nn.Conv2d(256, head_conv,
                   kernel_size=3, padding=1, bias=True),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(head_conv, num_output,
+                nn.Conv2d(head_conv, num_output, 
                   kernel_size=1, stride=1, padding=0))
           else:
             fc = nn.Conv2d(
@@ -230,43 +253,56 @@ class PoseResNet(nn.Module):
             return [ret]
 
     def init_weights(self, num_layers, pretrained=True):
-        if pretrained:
-            # print('=> init resnet deconv weights from normal distribution')
-            for _, m in self.deconv_layers.named_modules():
-                if isinstance(m, nn.ConvTranspose2d):
-                    # print('=> init {}.weight as normal(0, 0.001)'.format(name))
-                    # print('=> init {}.bias as 0'.format(name))
-                    nn.init.normal_(m.weight, std=0.001)
-                    if self.deconv_with_bias:
-                        nn.init.constant_(m.bias, 0)
-                elif isinstance(m, nn.BatchNorm2d):
-                    # print('=> init {}.weight as 1'.format(name))
-                    # print('=> init {}.bias as 0'.format(name))
-                    nn.init.constant_(m.weight, 1)
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+        # print('=> init resnet deconv weights from normal distribution')
+        for _, m in self.deconv_layers.named_modules():
+            if isinstance(m, nn.ConvTranspose2d):
+                # print('=> init {}.weight as normal(0, 0.001)'.format(name))
+                # print('=> init {}.bias as 0'.format(name))
+                nn.init.normal_(m.weight, std=0.001)
+                if self.deconv_with_bias:
                     nn.init.constant_(m.bias, 0)
-            # print('=> init final conv weights from normal distribution')
-            for head in self.heads:
-              final_layer = self.__getattr__(head)
-              for i, m in enumerate(final_layer.modules()):
-                  if isinstance(m, nn.Conv2d):
-                      # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                      # print('=> init {}.weight as normal(0, 0.001)'.format(name))
-                      # print('=> init {}.bias as 0'.format(name))
-                      if m.weight.shape[0] == self.heads[head]:
-                          if 'hm' in head:
-                              nn.init.constant_(m.bias, -2.19)
-                          else:
-                              nn.init.normal_(m.weight, std=0.001)
-                              nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                # print('=> init {}.weight as 1'.format(name))
+                # print('=> init {}.bias as 0'.format(name))
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+        # print('=> init final conv weights from normal distribution')
+        for head in self.heads:
+          final_layer = self.__getattr__(head)
+          for i, m in enumerate(final_layer.modules()):
+              if isinstance(m, nn.Conv2d):
+                  # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                  # print('=> init {}.weight as normal(0, 0.001)'.format(name))
+                  # print('=> init {}.bias as 0'.format(name))
+                  if m.weight.shape[0] == self.heads[head]:
+                      if 'hm' in head:
+                          nn.init.constant_(m.bias, -2.19)
+                      else:
+                          nn.init.normal_(m.weight, std=0.001)
+                          nn.init.constant_(m.bias, 0)
             #pretrained_state_dict = torch.load(pretrained)
-            url = model_urls['resnet{}'.format(num_layers)]
-            pretrained_state_dict = model_zoo.load_url(url)
-            print('=> loading pretrained model {}'.format(url))
+        if pretrained:
+            model_path = ac_model_paths.get('resnet{}'.format(num_layers), None)
+            if model_path is not None:
+                ckpt = torch.load(model_path)
+                ckpt = ckpt.get('state_dict', None)
+                pretrained_state_dict = {k.replace('module.', ''): v for k, v in ckpt.items()}
+            else:
+                raise NotImplementedError
+                model_path = model_urls['resnet{}'.format(num_layers)]
+                pretrained_state_dict = model_zoo.load_url(model_path)
+            print('=> loading pretrained model {}'.format(model_path))
             self.load_state_dict(pretrained_state_dict, strict=False)
         else:
             print('=> imagenet pretrained model dose not exist')
-            print('=> please download it first')
-            raise ValueError('imagenet pretrained model does not exist')
+            # print('=> please download it first')
+            # raise ValueError('imagenet pretrained model does not exist')
 
 
 resnet_spec = {18: (BasicBlock, [2, 2, 2, 2]),
