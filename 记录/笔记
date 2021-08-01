@@ -1,1 +1,4 @@
 src/lib/utils/image.py里面19行transform_preds 变换坐标位置从256*488 到原图
+
+服务器的DCNv2是我从别的github仓库：https://github.com/jinfagang/DCNv2_latest 里找的支持最新版本的pytorch，
+并编译的。
