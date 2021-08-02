@@ -110,12 +110,12 @@ def convert_heduo_to_coco(ann_file, out_file, image_prefix):
     image_id = -1
     obj_count_perimg = 0
     for line in labels:
-        if line.endswith(".jpeg"):
+        if line.endswith(".jpg"):
             max_obj_count = max(max_obj_count, obj_count_perimg)
             obj_count_perimg = 0
             # 图片
             image_id += 1
-            filename = line
+            filename = line.split("/")[-1]
             img_path = osp.join(image_prefix, filename)
             height, width = mmcv.imread(img_path).shape[:2]
 
@@ -128,9 +128,11 @@ def convert_heduo_to_coco(ann_file, out_file, image_prefix):
         else:
             # 标注
             obj_count_perimg += 1
-            pattern = re.compile(r'(\d+\.\d*)([eE][-+]?\d+)?')
+            pattern = re.compile(r'(\d+\.?\d*)([eE][-+]?\d+)?') # ziji :\.之后加上了? 为了匹配第一个0
             reresult = pattern.findall(line)
             floats = [float(x[0]+x[1]) for x in reresult]
+            floats = floats[:-1] # ziji 因为上面\.之后加上了?，所以把最后一个类别排除
+            floats[2], floats[3] = floats[2]-floats[0], floats[3]-floats[1]
             # print(floats)
             # floats = [float(x) for x in floats]
             cat_id = int(line[-1])+1
@@ -152,7 +154,7 @@ def convert_heduo_to_coco(ann_file, out_file, image_prefix):
                         kps = [floats[0]+floats[2]/2, floats[1], 1.0,
                                floats[0], floats[1]+floats[3], 1.0,
                                floats[0]+floats[2], floats[1]+floats[3], 1.0]
-                        add_coco_hp(kps, [floats[0], floats[1], floats[2],floats[3]], os.path.join("/data1/yangfan/heduo/img/", filename))
+                        #add_coco_hp(kps, [floats[0], floats[1], floats[2],floats[3]], os.path.join("/data1/yangfan/heduo/img/", filename))
                     # else:
                     #     kps = [0] * 3 * num_of_kps[cat_id]
             else:
@@ -164,7 +166,7 @@ def convert_heduo_to_coco(ann_file, out_file, image_prefix):
                     kps = [0] * 3 * num_of_kps[cat_id] # erase incomplete keypoints because dont know what they are
                 elif len(kps) > 2*num_of_kps[cat_id]:
                     print(kps)
-                    add_coco_hp(kps, [floats[0], floats[1], floats[2],floats[3]], os.path.join("/data1/yangfan/heduo/img/", filename))
+                    #add_coco_hp(kps, [floats[0], floats[1], floats[2],floats[3]], os.path.join("/data1/yangfan/heduo/img/", filename))
                 else:
                     for kps_idx in range(num_of_kps[cat_id]*2, 0, -2): # 4,2
                         kps.insert(kps_idx, 1.0)
@@ -176,7 +178,8 @@ def convert_heduo_to_coco(ann_file, out_file, image_prefix):
             #     kps = kps.extend([0]*(4-len(kps)))
 
             kps = cls_start_idx[cat_id-1]*[0]*3 + kps + (all_num_kps-cls_start_idx[cat_id])*[0]*3
-            assert len(kps) == all_num_kps*3
+            if not len(kps) == all_num_kps*3:
+                continue
 
             data_anno = dict(
                 image_id=image_id,
@@ -219,6 +222,9 @@ def convert_heduo_to_coco_test(image_folder, out_file, image_id=7848):
 
 
 if __name__ == '__main__':
-    convert_heduo_to_coco("/home/lvmengyao/Detection/dataset/heduo/annotations/label_RmRepeatedKps.txt", "/home/lvmengyao/Detection/dataset/heduo/annotations/heduo_5cls_keypoints_NoIncomplete_14kps.json", "/data1/yangfan/heduo/img")
+    # convert_heduo_to_coco("/home/lvmengyao/Detection/dataset/heduo/annotations/label_RmRepeatedKps.txt", "/home/lvmengyao/Detection/dataset/heduo/annotations/heduo_5cls_keypoints_NoIncomplete_14kps.json", "/data1/yangfan/heduo/img")
+    convert_heduo_to_coco("/data1/yangfan/heduo_per_for_ts_3/detection/label.txt",
+                          "/home/yangfan/project/objectdetection/dataset/heduo/annotations/heduo_3rd_batch_14kps.json",
+                          "/data1/yangfan/heduo_per_for_ts_3/detection/data/")
     # convert_heduo_to_coco_test("/home/lvmengyao/Detection/dataset/heduo/test3/", "/home/lvmengyao/Detection/dataset/heduo/annotations/heduo_5cls_keypoints_test3.json", image_id=15419)
     # 0, 14144, 15419
