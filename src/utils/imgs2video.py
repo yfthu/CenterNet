@@ -14,7 +14,7 @@ fps = 10
 # get frames list
 frames = sorted(os.listdir(im_dir))
 #frames = frames[6885-5759:7454-5759]
-frames = frames[453:453+250]
+frames = frames[453:453+250] # todo
 # w,h of image
 img = cv2.imread(os.path.join(im_dir, frames[0]))
 img_size = (img.shape[1], img.shape[0])

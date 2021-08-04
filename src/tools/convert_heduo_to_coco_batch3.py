@@ -138,7 +138,7 @@ def convert_heduo_to_coco(ann_file, out_file, image_prefix):
             cat_id = int(line[-1])+1
             if cat_id==5: print("Category \'none\' in filename")
             if cat_id==6: cat_id=5
-            num_of_objs[cat_id] += 1
+
 
             kps = floats[4:]
             # print(kps)
@@ -192,7 +192,7 @@ def convert_heduo_to_coco(ann_file, out_file, image_prefix):
                 )
             annotations.append(data_anno)
             obj_count += 1
-
+            num_of_objs[cat_id] += 1
     max_obj_count = max(max_obj_count, obj_count_perimg)
     save_coco_anno(images, annotations, out_file)
     print("Total images:", image_id+1)
