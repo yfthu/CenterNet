@@ -5,5 +5,15 @@ CUDA_VISIBLEVICES=3 python demo.py multi_pose --exp_id data_3rd_batch_infer_2d -
 
 CUDA_VISIBLE_DEVICES=2 python test_3d_val.py multi_pose_3d --arch res_18 --head_conv 64 --add_kps --exp_id seq3_res18_0804 --dataset coco_hp --keep_res --load_model /data1/lvmengyao/CenterNetExp/multi_pose/res_18_14kps_ac/model_last.pth --refine_model_dir "/data1/yangfan/CenterNetExp/multi_pose_3d/dla_3x_3d_0522_1231_fixCenterNet_RefineEasy_repairGT_l1loss_limit10/model_Refine3d_38_4.651825075710478.pth" --split val --vis_thresh 0.3 --debug 2 --K 20 --refine_loss l1 --match_max_center_dis 10.0 --object_threshold 0.3 --img_nogt_dir /data1/yangfan/HOLODataset/20210104/0114_3D数据标注前视_08_seq3/img/
 
-#0806
-CUDA_VISIBLEVICES=3 python demo.py multi_pose --exp_id kitti_test_kps_infer --demo /data1/yangfan/KITTI/object/testing/image_2/ --load_model ../exp/multi_pose/dla_3x/model_last.pth
+#0807
+'' ok '' python demo.py multi_pose --exp_id kitti_test_kps_infer --demo /data1/yangfan/KITTI/object/testing/image_2/ --load_model ../exp/multi_pose/dla_3x/model_last.pth --debug 5 --gpus 0
+解决了''error'' python test_3d_val.py multi_pose_3d --exp_id feitest0808 --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth --refine_model_dir "/data1/yangfan/CenterNetExp/multi_pose_3d/dla_3x_3d_0522_1231_fixCenterNet_RefineEasy_repairGT_l1loss_limit10/model_Refine3d_38_4.651825075710478.pth" --split val --vis_thresh 0.3 --debug 2 --K 20 --refine_loss l1 --match_max_center_dis 10.0 --object_threshold 0.3 --gpus 0
+解决了''error'' python test_3d_val.py multi_pose_3d --exp_id feitest0808 --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth --refine_model_dir "/data1/yangfan/CenterNetExp/multi_pose_3d/dla_3x_3d_0522_1231_fixCenterNet_RefineEasy_repairGT_l1loss_limit10/model_Refine3d_38_4.651825075710478.pth" --split val --vis_thresh 0.3 --debug 2 --K 20 --refine_loss l1 --match_max_center_dis 10.0 --object_threshold 0.3 --img_nogt_dir /data1/yangfan/HOLODataset/20210104/0114_3D数据标注前视_08_seq3/img/
+''ok'' python test.py multi_pose --exp_id feitest0808 --dataset coco_hp --keep_res --load_model ../exp/multi_pose/dla_3x/model_last.pth --split test2 --vis_thresh 0.3 --debug 1
+# 上面的问题解决了：问题在于 test_3d_val里面有：os.environ['CUDA_VISIBLE_DEVICES']=7，导致gpu一直找不到
+# 重新安装pytorch，11版本的cudatoolkit，下载并编译上 dcnv2-latest后，现在dcn模块可以GPU运行了
+
+#0809:
+CUDA_VISIBLE_DEVICES=4 python test.py multi_pose --exp_id dla_3x_14kps_lmy_model_best --add_kps --dataset coco_hp --keep_res --load_model "/data1/lvmengyao/CenterNetExp/multi_pose/dla_3x_14kps/model_best.pth" --split val --vis_thresh 0.3 --debug 2
+CUDA_VISIBLE_DEVICES=5 python test.py multi_pose --exp_id dla_3x_14kps_lmy_model_last --add_kps --dataset coco_hp --keep_res --load_model "/data1/lvmengyao/CenterNetExp/multi_pose/dla_3x_14kps/model_last.pth" --split val --vis_thresh 0.3 --debug 2
+CUDA_VISIBLE_DEVICES=4 python test.py multi_pose --exp_id dla_3x_14kps_lmy_model_best --add_kps --dataset coco_hp --keep_res --load_model "/data1/yangfan/CenterNetExp/multi_pose/dla_3x_14kps_lmy_model_best.pth" --split test2 --vis_thresh 0.3 --debug 1

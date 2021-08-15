@@ -5,7 +5,6 @@ from __future__ import print_function
 import _init_paths
 
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '4' # todo
 
 import json
 import cv2
@@ -78,6 +77,7 @@ class PrefetchDataset(torch.utils.data.Dataset):
 
 def prefetch_test(opt):
   os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
+  print("os.environ['CUDA_VISIBLE_DEVICES']",os.environ['CUDA_VISIBLE_DEVICES']) # ziji
   split = opt.split
 
   Dataset = dataset_factory[opt.dataset]

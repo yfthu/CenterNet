@@ -1,0 +1,4 @@
+0808:
+重新安装pytorch，11版本的cudatoolkit，下载并编译上 dcnv2-latest后，现在dcn模块可以GPU运行了
+环境:184上面的CenterNet，pytorch1.8.0 cudatoolkit 11.1.1 dcnv2-latest dcn模块可以运行。
+服务器上的dcnv2是对的，本地的dcnv2是错的。
